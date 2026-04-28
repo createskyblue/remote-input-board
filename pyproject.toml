@@ -1,0 +1,7 @@
+[project]
+name = "remote-input-board"
+version = "0.1.0"
+description = "Use a phone browser as a remote text input panel for Windows."
+requires-python = ">=3.11"
+
+[tool.uv]
