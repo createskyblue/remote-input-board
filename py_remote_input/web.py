@@ -326,11 +326,11 @@ HTML_PAGE = """<!DOCTYPE html>
       if (syncingKey) return;
       stopCountdown();
       syncingKey = true;
-      setStatus(key === "backspace" ? "同步退格中..." : "同步回车中...");
+
       try {
         await postJson("/api/key", { key });
 
-        setStatus("已同步 " + key + "。");
+
       } catch (error) {
         setStatus(error.message || "按键同步失败", true);
       } finally {
@@ -476,6 +476,8 @@ def handle_request(method: str, path: str, body: bytes, type_text, logger, press
             return json_response(500, {"error": str(exc)})
 
     return json_response(404, {"error": "Not found."})
+
+
 
 
 

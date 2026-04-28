@@ -1,5 +1,7 @@
 ﻿# Remote Input Board
 
+![Remote Input Board 手机界面预览](img/PixPin_2026-04-29_06-49-48.png)
+
 Remote Input Board 是一个给 Windows 电脑用的“手机远程输入面板”。它的出发点很简单：手机上的豆包输入法语音识别很好用，但 PC 端没有那么顺手，所以这个工具让手机负责输入，电脑负责接收。
 
 电脑启动服务后，手机浏览器打开同一局域网里的网页，就可以把手机输入框里的内容发送到电脑当前光标位置。
@@ -47,3 +49,4 @@ $env:PORT='3219'; uv run python -m py_remote_input
 
 - `logs/server.log`：服务器运行日志。
 - `logs/input-history.log`：文本输入历史，一行一条 JSON。
+

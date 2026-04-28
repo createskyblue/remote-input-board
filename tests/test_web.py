@@ -39,6 +39,7 @@ class WebTests(unittest.TestCase):
         self.assertIn("addHistoryItem", html)
         self.assertIn('addHistoryItem({ kind: "text", text: payloadText })', html)
         self.assertNotIn('addHistoryItem({ kind: "key", key })', html)
+        self.assertNotIn("已同步", html)
 
     def test_submits_text_to_typer(self):
         calls = []
@@ -143,5 +144,6 @@ class WebTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
