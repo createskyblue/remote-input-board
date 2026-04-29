@@ -289,6 +289,8 @@
         <div class="mouseActions">
           <button id="mouseLeft" class="mouseButton" type="button">左键</button>
           <button id="mouseRight" class="mouseButton" type="button">右键</button>
+          <button id="mouseKeyUp" class="keyButton" type="button">↑ 上键</button>
+          <button id="mouseKeyDown" class="keyButton" type="button">↓ 下键</button>
         </div>
       </div>
     </section>
@@ -325,6 +327,8 @@
     const keyDownButton = document.getElementById("keyDown");
     const mouseLeftButton = document.getElementById("mouseLeft");
     const mouseRightButton = document.getElementById("mouseRight");
+    const mouseKeyUpButton = document.getElementById("mouseKeyUp");
+    const mouseKeyDownButton = document.getElementById("mouseKeyDown");
     const statusNode = document.getElementById("status");
     const progressFill = document.getElementById("progressFill");
     const historyList = document.getElementById("historyList");
@@ -688,6 +692,8 @@
     modeToggle.addEventListener("click", () => setMode(currentMode === "text" ? "mouse" : "text"));
     mouseLeftButton.addEventListener("click", () => syncMouseClick("left"));
     mouseRightButton.addEventListener("click", () => syncMouseClick("right"));
+    mouseKeyUpButton.addEventListener("click", () => syncKey("up"));
+    mouseKeyDownButton.addEventListener("click", () => syncKey("down"));
     function resetTrackpadTap() {
       tapStartedAt = 0;
       tapPointerCount = 0;
