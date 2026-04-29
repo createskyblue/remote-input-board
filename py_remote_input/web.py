@@ -40,18 +40,28 @@ HTML_PAGE = """<!DOCTYPE html>
       grid-template-rows: auto auto auto;
       gap: 14px;
     }
-    header, .composer, .statusbar {
+    .composer, .statusbar {
       background: rgba(255, 255, 255, 0.92);
       border: 1px solid var(--line);
       border-radius: 18px;
       box-shadow: var(--shadow);
       backdrop-filter: blur(12px);
     }
-    header { padding: 16px; }
-    h1 { margin: 0; font-size: 24px; line-height: 1.2; }
-    .subtitle { margin: 8px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
     .composer { padding: 14px; display: grid; align-content: start; gap: 8px; }
+    .composerHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
     label { font-size: 14px; font-weight: 700; }
+    .totalChars {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .totalChars strong { color: var(--accent); font-size: 16px; }
     textarea {
       width: 100%;
       min-height: 14vh;
@@ -125,6 +135,12 @@ HTML_PAGE = """<!DOCTYPE html>
     .historyHeader h2 { margin: 0; font-size: 16px; }
     .historyList { display: grid; gap: 8px; max-height: 32vh; overflow: auto; }
     .historyItem { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: #fbfdfc; white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.45; }
+    .historyItem.clickable { cursor: pointer; }
+    .historyItem.clickable:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
+      outline: none;
+    }
     .historyMeta { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .statusbar { padding: 12px 14px; color: var(--muted); font-size: 14px; min-height: 48px; }
     .statusbar.error { color: var(--danger); }
@@ -133,19 +149,18 @@ HTML_PAGE = """<!DOCTYPE html>
       .toolbar { grid-template-columns: 1fr; }
       .actions { display: grid; grid-template-columns: 1fr 1fr; }
       textarea { min-height: 12vh; }
+      .composerHeader { align-items: flex-start; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
-    <header>
-      <h1>远程输入粘贴板</h1>
-      <p class="subtitle">手机语音输入后发送到电脑当前光标位置。自动发送开启时，停止输入到设定秒数后会发送并清空。</p>
-    </header>
-
     <section class="composer">
-      <label for="text">输入内容</label>
-      <textarea id="text" placeholder="在这里用豆包输入法语音输入"></textarea>
+      <div class="composerHeader">
+        <label for="text">输入内容</label>
+        <div class="totalChars">累计字数 <strong id="totalChars">0</strong></div>
+      </div>
+      <textarea id="text" autofocus placeholder="在这里用豆包输入法语音输入"></textarea>
       <div class="progressTrack" aria-hidden="true"><div id="progressFill" class="progressFill"></div></div>
       <div class="toolbar">
         <label class="switch"><input id="autoSend" type="checkbox" checked><span>自动发送</span></label>
@@ -175,6 +190,7 @@ HTML_PAGE = """<!DOCTYPE html>
   <script>
     const DELAY_STORAGE_KEY = "remoteInput.autoSendDelaySeconds";
     const HISTORY_STORAGE_KEY = "remoteInput.history";
+    const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
     const HISTORY_LIMIT = 30;
     const text = document.getElementById("text");
     const autoSend = document.getElementById("autoSend");
@@ -185,12 +201,36 @@ HTML_PAGE = """<!DOCTYPE html>
     const progressFill = document.getElementById("progressFill");
     const historyList = document.getElementById("historyList");
     const clearHistory = document.getElementById("clearHistory");
+    const totalChars = document.getElementById("totalChars");
 
     let pendingTimer = null;
     let progressTimer = null;
     let countdownStartedAt = 0;
     let sending = false;
     let syncingKey = false;
+
+    function focusComposer() {
+      try {
+        text.focus({ preventScroll: true });
+      } catch {
+        text.focus();
+      }
+      try {
+        text.setSelectionRange(text.value.length, text.value.length);
+      } catch {
+      }
+    }
+
+    function primeMobileKeyboard() {
+      focusComposer();
+      setTimeout(focusComposer, 200);
+    }
+
+    function focusComposerOnFirstTouch() {
+      if (document.activeElement !== text) focusComposer();
+      document.removeEventListener("pointerdown", focusComposerOnFirstTouch);
+      document.removeEventListener("touchstart", focusComposerOnFirstTouch);
+    }
 
 
     function loadHistory() {
@@ -206,6 +246,43 @@ HTML_PAGE = """<!DOCTYPE html>
       window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(items.slice(0, HISTORY_LIMIT)));
     }
 
+    function normalizeTotalChars(value) {
+      const count = Number.parseInt(value, 10);
+      return Number.isFinite(count) && count > 0 ? count : 0;
+    }
+
+    function updateTotalChars(count) {
+      totalChars.textContent = count.toLocaleString("zh-CN");
+    }
+
+    function loadTotalChars() {
+      updateTotalChars(normalizeTotalChars(window.localStorage.getItem(TOTAL_CHARS_STORAGE_KEY)));
+    }
+
+    function addTypedChars(value) {
+      const current = normalizeTotalChars(window.localStorage.getItem(TOTAL_CHARS_STORAGE_KEY));
+      const next = current + Array.from(value).length;
+      window.localStorage.setItem(TOTAL_CHARS_STORAGE_KEY, next.toString());
+      updateTotalChars(next);
+    }
+
+    function confirmHistoryOverwrite() {
+      return window.confirm("输入框已有内容，要覆盖当前输入内容吗？");
+    }
+
+    function applyHistoryItem(item) {
+      if (item.kind !== "text" || typeof item.text !== "string") return;
+      if (text.value.trim() && !confirmHistoryOverwrite()) {
+        focusComposer();
+        return;
+      }
+
+      stopCountdown();
+      text.value = item.text;
+      setStatus("已填充历史记录，可编辑后发送。");
+      focusComposer();
+    }
+
     function renderHistory() {
       const items = loadHistory();
       historyList.innerHTML = "";
@@ -219,6 +296,18 @@ HTML_PAGE = """<!DOCTYPE html>
       for (const item of items) {
         const node = document.createElement("div");
         node.className = "historyItem";
+        if (item.kind === "text" && typeof item.text === "string") {
+          node.classList.add("clickable");
+          node.setAttribute("role", "button");
+          node.setAttribute("tabindex", "0");
+          node.addEventListener("click", () => applyHistoryItem(item));
+          node.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              applyHistoryItem(item);
+            }
+          });
+        }
         const meta = document.createElement("div");
         meta.className = "historyMeta";
         meta.textContent = new Date(item.createdAt).toLocaleString();
@@ -311,6 +400,7 @@ HTML_PAGE = """<!DOCTYPE html>
       try {
         const result = await postJson("/api/type", { text: payloadText });
         addHistoryItem({ kind: "text", text: payloadText });
+        addTypedChars(payloadText);
         text.value = "";
         setStatus("已发送，耗时 " + (result.durationMs || 0) + " ms。");
       } catch (error) {
@@ -399,11 +489,19 @@ HTML_PAGE = """<!DOCTYPE html>
       stopCountdown();
       text.value = "";
       setStatus("已清空。");
-      text.focus();
+      focusComposer();
     });
 
     loadSavedDelay();
+    loadTotalChars();
     renderHistory();
+    primeMobileKeyboard();
+    window.addEventListener("pageshow", primeMobileKeyboard);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") primeMobileKeyboard();
+    });
+    document.addEventListener("pointerdown", focusComposerOnFirstTouch);
+    document.addEventListener("touchstart", focusComposerOnFirstTouch);
   </script>
 </body>
 </html>
