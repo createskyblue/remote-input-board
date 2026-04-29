@@ -4,4 +4,14 @@ version = "0.1.0"
 description = "Use a phone browser as a remote text input panel for Windows."
 requires-python = ">=3.11"
 
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
 [tool.uv]
+
+[tool.setuptools.packages.find]
+include = ["py_remote_input*"]
+
+[tool.setuptools.package-data]
+py_remote_input = ["templates/*.html"]

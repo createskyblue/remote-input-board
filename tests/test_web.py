@@ -1,6 +1,8 @@
 ﻿import json
 import unittest
+from importlib import resources
 
+import py_remote_input
 from py_remote_input.web import handle_request
 
 
@@ -22,8 +24,10 @@ class WebTests(unittest.TestCase):
     def test_serves_mobile_page_with_controls(self):
         response = handle_request("GET", "/", b"", lambda _text: {}, FakeLogger())
         html = response.body.decode("utf-8")
+        template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(html, template)
         self.assertIn("textarea", html)
         self.assertNotIn("<header>", html)
         self.assertNotIn("手机语音输入后发送到电脑当前光标位置", html)
