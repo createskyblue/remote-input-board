@@ -367,6 +367,7 @@
     const TRACKPAD_ACCELERATION_MAX = 1.8;
     const TRACKPAD_ACCELERATION_GAIN = 1.4;
     let lastClickDownAt = 0;
+    let pendingSingleTapTimer = null;
     let tapStartedDrag = false;
     let dragLocked = false;
     let pendingMouseDx = 0;
@@ -828,8 +829,32 @@
       tapStartedDrag = false;
     }
 
+    function cancelPendingSingleTapClick() {
+      if (pendingSingleTapTimer === null) return;
+      window.clearTimeout(pendingSingleTapTimer);
+      pendingSingleTapTimer = null;
+    }
+
     function resetClickChain() {
+      cancelPendingSingleTapClick();
       lastClickDownAt = 0;
+    }
+
+    function flushPendingSingleTapClick() {
+      if (pendingSingleTapTimer === null) return;
+      cancelPendingSingleTapClick();
+      lastClickDownAt = 0;
+      syncMouseClick("left");
+    }
+
+    function scheduleSingleTapClick(startedAt) {
+      cancelPendingSingleTapClick();
+      lastClickDownAt = startedAt;
+      pendingSingleTapTimer = window.setTimeout(() => {
+        pendingSingleTapTimer = null;
+        lastClickDownAt = 0;
+        syncMouseClick("left");
+      }, DOUBLE_TAP_MAX_MS);
     }
 
     function updateTapDebug(tapIntervalMs, detail = "") {
@@ -861,8 +886,7 @@
         syncMouseClick("right");
         return;
       }
-      syncMouseClick("left");
-      lastClickDownAt = startedAt;
+      scheduleSingleTapClick(startedAt);
     }
 
     trackpad.addEventListener("pointerdown", (event) => {
@@ -877,8 +901,8 @@
         if (!dragLocked && tapIntervalMs !== null && tapIntervalMs < DOUBLE_TAP_MAX_MS) {
           startDragFromDoubleTap(tapIntervalMs);
         } else {
+          if (tapIntervalMs !== null) flushPendingSingleTapClick();
           updateTapDebug(tapIntervalMs, tapIntervalMs === null ? "" : "未触发");
-          resetClickChain();
         }
       }
       activeTrackpadPointers.set(event.pointerId, {
