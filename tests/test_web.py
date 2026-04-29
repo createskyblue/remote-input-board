@@ -51,6 +51,7 @@ class WebTests(unittest.TestCase):
         self.assertIn("grid-template-columns: 1fr auto;", html)
         self.assertIn(".toolbar { grid-template-columns: 1fr; }", html)
         self.assertIn(".actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }", html)
+        self.assertIn(".modePanel { display: grid; gap: 8px; }", html)
         self.assertIn("TOTAL_CHARS_STORAGE_KEY", html)
         self.assertIn("remoteInput.totalChars", html)
         self.assertIn("totalChars", html)
@@ -67,6 +68,21 @@ class WebTests(unittest.TestCase):
         self.assertIn('id="keyDown"', html)
         self.assertIn('syncKey("up")', html)
         self.assertIn('syncKey("down")', html)
+        self.assertIn("modeToggle", html)
+        self.assertIn("touchpadPanel", html)
+        self.assertIn("trackpad", html)
+        self.assertIn("mouseLeft", html)
+        self.assertIn("mouseRight", html)
+        self.assertIn("滑动控制鼠标", html)
+        self.assertIn("单指单击：左键", html)
+        self.assertIn("双指单击：右键", html)
+        self.assertIn("syncMouseMove", html)
+        self.assertIn("activeTrackpadPointers", html)
+        self.assertIn("finishTrackpadTap", html)
+        self.assertIn('syncMouseClick("left")', html)
+        self.assertIn('syncMouseClick("right")', html)
+        self.assertIn('postJson("/api/mouse/move"', html)
+        self.assertIn('postJson("/api/mouse/click"', html)
         self.assertIn("/api/key", html)
         self.assertIn("HISTORY_STORAGE_KEY", html)
         self.assertIn("historyList", html)
@@ -174,6 +190,44 @@ class WebTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(calls, ["up"])
+
+    def test_submits_mouse_move_to_mouse_mover(self):
+        calls = []
+
+        def move_mouse(dx, dy):
+            calls.append((dx, dy))
+            return {"method": "sendinput-mouse-move", "durationMs": 3}
+
+        response = handle_request(
+            "POST",
+            "/api/mouse/move",
+            json.dumps({"dx": 12.4, "dy": -7.6}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+            move_mouse=move_mouse,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, [(12, -8)])
+
+    def test_submits_mouse_click_to_mouse_clicker(self):
+        calls = []
+
+        def click_mouse(button):
+            calls.append(button)
+            return {"method": "sendinput-mouse-click", "durationMs": 3}
+
+        response = handle_request(
+            "POST",
+            "/api/mouse/click",
+            json.dumps({"button": "right"}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+            click_mouse=click_mouse,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, ["right"])
 
     def test_rejects_empty_text(self):
         response = handle_request(

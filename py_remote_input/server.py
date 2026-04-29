@@ -9,7 +9,7 @@ import socket
 from urllib.parse import urlparse
 
 from py_remote_input.logger import Logger
-from py_remote_input.typer import press_key, type_text
+from py_remote_input.typer import click_mouse, move_mouse, press_key, type_text
 from py_remote_input.web import handle_request
 
 
@@ -68,6 +68,8 @@ def build_handler(logger: Logger, record_history):
                 logger=logger,
                 press_key=press_key,
                 record_history=record_history,
+                move_mouse=move_mouse,
+                click_mouse=click_mouse,
             )
             self.send_response(response.status_code)
             self.send_header("Content-Type", response.content_type)

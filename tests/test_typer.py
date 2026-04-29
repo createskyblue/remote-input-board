@@ -28,6 +28,24 @@ class TyperTests(unittest.TestCase):
         self.assertEqual(down_inputs[0].ki.wVk, typer.VK_DOWN)
         self.assertEqual(down_inputs[1].ki.wVk, typer.VK_DOWN)
 
+    def test_mouse_move_uses_relative_mouse_input(self):
+        inputs = typer.build_mouse_move_inputs(12, -7)
+
+        self.assertEqual(len(inputs), 1)
+        self.assertEqual(inputs[0].type, typer.INPUT_MOUSE)
+        self.assertEqual(inputs[0].mi.dx, 12)
+        self.assertEqual(inputs[0].mi.dy, -7)
+        self.assertEqual(inputs[0].mi.dwFlags, typer.MOUSEEVENTF_MOVE)
+
+    def test_mouse_buttons_supported(self):
+        left_inputs = typer.build_mouse_click_inputs("left")
+        right_inputs = typer.build_mouse_click_inputs("right")
+
+        self.assertEqual(left_inputs[0].mi.dwFlags, typer.MOUSEEVENTF_LEFTDOWN)
+        self.assertEqual(left_inputs[1].mi.dwFlags, typer.MOUSEEVENTF_LEFTUP)
+        self.assertEqual(right_inputs[0].mi.dwFlags, typer.MOUSEEVENTF_RIGHTDOWN)
+        self.assertEqual(right_inputs[1].mi.dwFlags, typer.MOUSEEVENTF_RIGHTUP)
+
 
 if __name__ == "__main__":
     unittest.main()

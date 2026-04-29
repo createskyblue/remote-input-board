@@ -48,6 +48,11 @@
       justify-content: space-between;
       gap: 12px;
     }
+    .headerTools {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
     label { font-size: 14px; font-weight: 700; }
     .totalChars {
       color: var(--muted);
@@ -116,6 +121,63 @@
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
+    .modePanel { display: grid; gap: 8px; }
+    .modePanel[hidden] { display: none; }
+    .modeToggle {
+      min-height: 36px;
+      border-radius: 999px;
+      padding: 0 12px;
+      color: var(--accent-2);
+      background: rgba(29, 79, 145, 0.1);
+      font-size: 13px;
+    }
+    .touchpadPanel {
+      display: grid;
+      gap: 10px;
+    }
+    .trackpad {
+      min-height: 220px;
+      border: 1px solid rgba(15, 123, 95, 0.18);
+      border-radius: 18px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(218, 231, 226, 0.86)),
+        radial-gradient(circle at 30% 20%, rgba(15, 123, 95, 0.13), transparent 34%);
+      box-shadow:
+        inset 0 2px 8px rgba(255, 255, 255, 0.85),
+        inset 0 -16px 24px rgba(20, 38, 31, 0.08);
+      touch-action: none;
+      user-select: none;
+      cursor: crosshair;
+      position: relative;
+      overflow: hidden;
+    }
+    .trackpad::before {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border: 1px solid rgba(15, 123, 95, 0.1);
+      border-radius: 14px;
+      pointer-events: none;
+    }
+    .trackpadHint {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      display: grid;
+      gap: 6px;
+      color: rgba(101, 113, 109, 0.82);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.35;
+      text-align: center;
+      pointer-events: none;
+    }
+    .mouseActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
     button {
       min-height: 48px;
       border: 0;
@@ -146,6 +208,10 @@
       color: var(--accent-2);
       background: rgba(29, 79, 145, 0.1);
     }
+    button.mouseButton {
+      color: var(--ink);
+      background: rgba(29, 79, 145, 0.12);
+    }
     button:disabled { opacity: 0.62; cursor: wait; }
     .progressTrack { height: 8px; overflow: hidden; border-radius: 999px; background: #dce6e2; }
     .progressFill {
@@ -173,6 +239,8 @@
       body { padding: 10px; }
       .toolbar { grid-template-columns: 1fr; }
       .actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+      .headerTools { gap: 8px; }
+      .trackpad { min-height: 260px; }
       textarea { min-height: 12vh; }
       .composerHeader { align-items: flex-start; }
     }
@@ -183,25 +251,45 @@
     <section class="composer">
       <div class="composerHeader">
         <label for="text">输入内容</label>
-        <div class="totalChars">累计字数 <strong id="totalChars">0</strong></div>
-      </div>
-      <textarea id="text" autofocus placeholder="在这里用豆包输入法语音输入"></textarea>
-      <div class="progressTrack" aria-hidden="true"><div id="progressFill" class="progressFill"></div></div>
-      <div class="toolbar">
-        <div id="autoSendSentence" class="autoSendSentence">
-          <input id="autoSend" type="checkbox" checked aria-label="启用自动发送">
-          <span id="autoSendPrefix">在</span>
-          <input id="delaySeconds" type="number" inputmode="decimal" min="0.1" max="30" step="0.1" value="2">
-          <span id="autoSendSuffix">秒后自动发送！</span>
-        </div>
-        <div class="actions">
-          <button id="send" class="sendButton" type="button" aria-label="发送或回车">发送<span class="enterIcon" aria-hidden="true">⏎</span></button>
-          <button id="clear" class="secondary" type="button">清空</button>
+        <div class="headerTools">
+          <button id="modeToggle" class="modeToggle" type="button">触控板</button>
+          <div class="totalChars">累计字数 <strong id="totalChars">0</strong></div>
         </div>
       </div>
-      <div class="keyActions" aria-label="方向键">
-        <button id="keyUp" class="keyButton" type="button">↑ 上键</button>
-        <button id="keyDown" class="keyButton" type="button">↓ 下键</button>
+
+      <div id="textPanel" class="modePanel">
+        <textarea id="text" autofocus placeholder="在这里用豆包输入法语音输入"></textarea>
+        <div class="progressTrack" aria-hidden="true"><div id="progressFill" class="progressFill"></div></div>
+        <div class="toolbar">
+          <div id="autoSendSentence" class="autoSendSentence">
+            <input id="autoSend" type="checkbox" checked aria-label="启用自动发送">
+            <span id="autoSendPrefix">在</span>
+            <input id="delaySeconds" type="number" inputmode="decimal" min="0.1" max="30" step="0.1" value="2">
+            <span id="autoSendSuffix">秒后自动发送！</span>
+          </div>
+          <div class="actions">
+            <button id="send" class="sendButton" type="button" aria-label="发送或回车">发送<span class="enterIcon" aria-hidden="true">⏎</span></button>
+            <button id="clear" class="secondary" type="button">清空</button>
+          </div>
+        </div>
+        <div class="keyActions" aria-label="方向键">
+          <button id="keyUp" class="keyButton" type="button">↑ 上键</button>
+          <button id="keyDown" class="keyButton" type="button">↓ 下键</button>
+        </div>
+      </div>
+
+      <div id="touchpadPanel" class="modePanel touchpadPanel" hidden>
+        <div id="trackpad" class="trackpad" role="application" aria-label="鼠标触控板">
+          <div class="trackpadHint">
+            <span>滑动控制鼠标</span>
+            <span>单指单击：左键</span>
+            <span>双指单击：右键</span>
+          </div>
+        </div>
+        <div class="mouseActions">
+          <button id="mouseLeft" class="mouseButton" type="button">左键</button>
+          <button id="mouseRight" class="mouseButton" type="button">右键</button>
+        </div>
       </div>
     </section>
 
@@ -223,6 +311,10 @@
     const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
     const HISTORY_LIMIT = 30;
     const text = document.getElementById("text");
+    const textPanel = document.getElementById("textPanel");
+    const touchpadPanel = document.getElementById("touchpadPanel");
+    const modeToggle = document.getElementById("modeToggle");
+    const trackpad = document.getElementById("trackpad");
     const autoSend = document.getElementById("autoSend");
     const delaySeconds = document.getElementById("delaySeconds");
     const autoSendPrefix = document.getElementById("autoSendPrefix");
@@ -231,6 +323,8 @@
     const clearButton = document.getElementById("clear");
     const keyUpButton = document.getElementById("keyUp");
     const keyDownButton = document.getElementById("keyDown");
+    const mouseLeftButton = document.getElementById("mouseLeft");
+    const mouseRightButton = document.getElementById("mouseRight");
     const statusNode = document.getElementById("status");
     const progressFill = document.getElementById("progressFill");
     const historyList = document.getElementById("historyList");
@@ -242,8 +336,19 @@
     let countdownStartedAt = 0;
     let sending = false;
     let syncingKey = false;
+    let currentMode = "text";
+    const activeTrackpadPointers = new Map();
+    let tapStartedAt = 0;
+    let tapPointerCount = 0;
+    let tapMoved = false;
+    const TAP_MAX_MS = 220;
+    const TAP_MAX_MOVE = 8;
+    let pendingMouseDx = 0;
+    let pendingMouseDy = 0;
+    let mouseFrame = null;
 
     function focusComposer() {
+      if (currentMode !== "text") return;
       try {
         text.focus({ preventScroll: true });
       } catch {
@@ -264,6 +369,22 @@
       if (document.activeElement !== text) focusComposer();
       document.removeEventListener("pointerdown", focusComposerOnFirstTouch);
       document.removeEventListener("touchstart", focusComposerOnFirstTouch);
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      const mouseMode = mode === "mouse";
+      textPanel.hidden = mouseMode;
+      touchpadPanel.hidden = !mouseMode;
+      modeToggle.textContent = mouseMode ? "输入" : "触控板";
+      stopCountdown();
+      if (mouseMode) {
+        text.blur();
+        setStatus("触控板模式。");
+      } else {
+        setStatus("输入模式。");
+        focusComposer();
+      }
     }
 
 
@@ -436,6 +557,38 @@
       return result;
     }
 
+    function flushMouseMove() {
+      mouseFrame = null;
+      const dx = Math.round(pendingMouseDx);
+      const dy = Math.round(pendingMouseDy);
+      pendingMouseDx = 0;
+      pendingMouseDy = 0;
+      if (dx === 0 && dy === 0) return;
+      syncMouseMove(dx, dy);
+    }
+
+    function queueMouseMove(dx, dy) {
+      pendingMouseDx += dx;
+      pendingMouseDy += dy;
+      if (mouseFrame === null) mouseFrame = window.requestAnimationFrame(flushMouseMove);
+    }
+
+    async function syncMouseMove(dx, dy) {
+      try {
+        await postJson("/api/mouse/move", { dx, dy });
+      } catch (error) {
+        setStatus(error.message || "鼠标移动失败", true);
+      }
+    }
+
+    async function syncMouseClick(button) {
+      try {
+        await postJson("/api/mouse/click", { button });
+      } catch (error) {
+        setStatus(error.message || "鼠标点击失败", true);
+      }
+    }
+
     async function sendText(options = {}) {
       const payloadText = text.value;
       if (!payloadText.trim() || sending) return;
@@ -532,6 +685,62 @@
     sendButton.addEventListener("click", sendOrEnter);
     keyUpButton.addEventListener("click", () => syncKey("up"));
     keyDownButton.addEventListener("click", () => syncKey("down"));
+    modeToggle.addEventListener("click", () => setMode(currentMode === "text" ? "mouse" : "text"));
+    mouseLeftButton.addEventListener("click", () => syncMouseClick("left"));
+    mouseRightButton.addEventListener("click", () => syncMouseClick("right"));
+    function resetTrackpadTap() {
+      tapStartedAt = 0;
+      tapPointerCount = 0;
+      tapMoved = false;
+    }
+
+    function finishTrackpadTap(cancelled = false) {
+      const elapsed = performance.now() - tapStartedAt;
+      const shouldClick = !cancelled && tapStartedAt && !tapMoved && elapsed <= TAP_MAX_MS;
+      const pointerCount = tapPointerCount;
+      resetTrackpadTap();
+      if (!shouldClick) return;
+      if (pointerCount >= 2) syncMouseClick("right");
+      else syncMouseClick("left");
+    }
+
+    trackpad.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      if (activeTrackpadPointers.size === 0) {
+        tapStartedAt = performance.now();
+        tapPointerCount = 0;
+        tapMoved = false;
+      }
+      activeTrackpadPointers.set(event.pointerId, {
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+      });
+      tapPointerCount = Math.max(tapPointerCount, activeTrackpadPointers.size);
+      trackpad.setPointerCapture(event.pointerId);
+    });
+    trackpad.addEventListener("pointermove", (event) => {
+      const pointer = activeTrackpadPointers.get(event.pointerId);
+      if (!pointer) return;
+      event.preventDefault();
+      const totalDx = event.clientX - pointer.startX;
+      const totalDy = event.clientY - pointer.startY;
+      if (Math.hypot(totalDx, totalDy) > TAP_MAX_MOVE) tapMoved = true;
+      const dx = event.clientX - pointer.lastX;
+      const dy = event.clientY - pointer.lastY;
+      pointer.lastX = event.clientX;
+      pointer.lastY = event.clientY;
+      if (activeTrackpadPointers.size === 1) queueMouseMove(dx, dy);
+    });
+    trackpad.addEventListener("pointerup", (event) => {
+      activeTrackpadPointers.delete(event.pointerId);
+      if (activeTrackpadPointers.size === 0) finishTrackpadTap();
+    });
+    trackpad.addEventListener("pointercancel", (event) => {
+      activeTrackpadPointers.delete(event.pointerId);
+      if (activeTrackpadPointers.size === 0) finishTrackpadTap(true);
+    });
     clearHistory.addEventListener("click", () => {
       saveHistory([]);
       renderHistory();

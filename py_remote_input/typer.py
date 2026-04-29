@@ -53,9 +53,15 @@ class INPUT(ctypes.Structure):
     ]
 
 
+INPUT_MOUSE = 0
 INPUT_KEYBOARD = 1
 KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
+MOUSEEVENTF_MOVE = 0x0001
+MOUSEEVENTF_LEFTDOWN = 0x0002
+MOUSEEVENTF_LEFTUP = 0x0004
+MOUSEEVENTF_RIGHTDOWN = 0x0008
+MOUSEEVENTF_RIGHTUP = 0x0010
 VK_BACK = 0x08
 VK_RETURN = 0x0D
 VK_UP = 0x26
@@ -68,6 +74,11 @@ SUPPORTED_KEYS = {
     "down": VK_DOWN,
     "enter": VK_RETURN,
     "up": VK_UP,
+}
+
+SUPPORTED_MOUSE_BUTTONS = {
+    "left": (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+    "right": (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
 }
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -110,11 +121,39 @@ def _make_key_input(virtual_key: int, key_up: bool) -> INPUT:
     )
 
 
+def _make_mouse_input(dx: int = 0, dy: int = 0, flags: int = 0) -> INPUT:
+    return INPUT(
+        type=INPUT_MOUSE,
+        mi=MOUSEINPUT(
+            dx=dx,
+            dy=dy,
+            mouseData=0,
+            dwFlags=flags,
+            time=0,
+            dwExtraInfo=0,
+        ),
+    )
+
+
 def build_key_inputs(key: str) -> list[INPUT]:
     virtual_key = SUPPORTED_KEYS.get(key)
     if virtual_key is None:
         raise ValueError(f"Unsupported key: {key}")
     return [_make_key_input(virtual_key, False), _make_key_input(virtual_key, True)]
+
+
+def build_mouse_move_inputs(dx: int, dy: int) -> list[INPUT]:
+    if dx == 0 and dy == 0:
+        return []
+    return [_make_mouse_input(dx=dx, dy=dy, flags=MOUSEEVENTF_MOVE)]
+
+
+def build_mouse_click_inputs(button: str) -> list[INPUT]:
+    flags = SUPPORTED_MOUSE_BUTTONS.get(button)
+    if flags is None:
+        raise ValueError(f"Unsupported mouse button: {button}")
+    down_flag, up_flag = flags
+    return [_make_mouse_input(flags=down_flag), _make_mouse_input(flags=up_flag)]
 
 
 def build_text_inputs(text: str) -> list[INPUT]:
@@ -167,5 +206,26 @@ def press_key(key: str) -> dict:
         "method": "sendinput-key",
         "key": key,
         "windowTitle": window_title,
+        "durationMs": int((time.perf_counter() - started_at) * 1000),
+    }
+
+
+def move_mouse(dx: int, dy: int) -> dict:
+    started_at = time.perf_counter()
+    _send_inputs(build_mouse_move_inputs(dx, dy))
+    return {
+        "method": "sendinput-mouse-move",
+        "dx": dx,
+        "dy": dy,
+        "durationMs": int((time.perf_counter() - started_at) * 1000),
+    }
+
+
+def click_mouse(button: str) -> dict:
+    started_at = time.perf_counter()
+    _send_inputs(build_mouse_click_inputs(button))
+    return {
+        "method": "sendinput-mouse-click",
+        "button": button,
         "durationMs": int((time.perf_counter() - started_at) * 1000),
     }
