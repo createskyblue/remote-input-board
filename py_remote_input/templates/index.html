@@ -366,6 +366,7 @@
     const TRACKPAD_ACCELERATION_SPEED_THRESHOLD = 0.45;
     const TRACKPAD_ACCELERATION_MAX = 1.8;
     const TRACKPAD_ACCELERATION_GAIN = 1.4;
+    const TRACKPAD_VERTICAL_SCALE_MIN = 0.68;
     let lastClickDownAt = 0;
     let pendingSingleTapTimer = null;
     let tapStartedDrag = false;
@@ -677,6 +678,16 @@
       return { dx: dx * factor, dy: dy * factor };
     }
 
+    function getTrackpadVerticalScale() {
+      const width = trackpad.clientWidth || 1;
+      const height = trackpad.clientHeight || width;
+      return Math.min(1, Math.max(TRACKPAD_VERTICAL_SCALE_MIN, height / width));
+    }
+
+    function normalizeTrackpadDelta(dx, dy, verticalScale) {
+      return { dx, dy: dy * verticalScale };
+    }
+
     async function syncMouseMove(dx, dy) {
       try {
         await sendRealtime(
@@ -911,6 +922,7 @@
         lastX: event.clientX,
         lastY: event.clientY,
         lastAt: event.timeStamp,
+        verticalScale: getTrackpadVerticalScale(),
       });
       tapPointerCount = Math.max(tapPointerCount, activeTrackpadPointers.size);
       trackpad.setPointerCapture(event.pointerId);
@@ -931,7 +943,8 @@
       const dx = event.clientX - pointer.lastX;
       const dy = event.clientY - pointer.lastY;
       const elapsedMs = event.timeStamp - pointer.lastAt;
-      const adjusted = applyTrackpadAcceleration(dx, dy, elapsedMs);
+      const normalized = normalizeTrackpadDelta(dx, dy, pointer.verticalScale);
+      const adjusted = applyTrackpadAcceleration(normalized.dx, normalized.dy, elapsedMs);
       pointer.lastX = event.clientX;
       pointer.lastY = event.clientY;
       pointer.lastAt = event.timeStamp;
