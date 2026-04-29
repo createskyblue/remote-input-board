@@ -61,10 +61,12 @@
       white-space: nowrap;
     }
     .totalChars strong { color: var(--accent); font-size: 16px; }
+    .textSurface { min-height: 220px; display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 8px; }
     textarea {
       width: 100%;
-      min-height: 14vh;
-      max-height: 24vh;
+      height: 100%;
+      min-height: 0;
+      max-height: none;
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 16px;
@@ -73,7 +75,7 @@
       font: inherit;
       font-size: 19px;
       line-height: 1.65;
-      resize: vertical;
+      resize: none;
       outline: none;
     }
     textarea:focus, .autoSendSentence input[type="number"]:focus {
@@ -135,8 +137,7 @@
       display: grid;
       gap: 10px;
     }
-    .trackpad {
-      min-height: 220px;
+    .trackpad { min-height: 220px;
       border: 1px solid rgba(15, 123, 95, 0.18);
       border-radius: 18px;
       background:
@@ -158,6 +159,13 @@
       border: 1px solid rgba(15, 123, 95, 0.1);
       border-radius: 14px;
       pointer-events: none;
+    }
+    .trackpad.dragLocked {
+      border-color: rgba(29, 79, 145, 0.46);
+      box-shadow:
+        inset 0 2px 8px rgba(255, 255, 255, 0.85),
+        inset 0 -16px 24px rgba(20, 38, 31, 0.08),
+        0 0 0 4px rgba(29, 79, 145, 0.12);
     }
     .trackpadHint {
       position: absolute;
@@ -208,10 +216,7 @@
       color: var(--accent-2);
       background: rgba(29, 79, 145, 0.1);
     }
-    button.mouseButton {
-      color: var(--ink);
-      background: rgba(29, 79, 145, 0.12);
-    }
+    button.mouseButton { color: var(--accent-2); background: rgba(29, 79, 145, 0.12); }
     button:disabled { opacity: 0.62; cursor: wait; }
     .progressTrack { height: 8px; overflow: hidden; border-radius: 999px; background: #dce6e2; }
     .progressFill {
@@ -240,8 +245,7 @@
       .toolbar { grid-template-columns: 1fr; }
       .actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
       .headerTools { gap: 8px; }
-      .trackpad { min-height: 260px; }
-      textarea { min-height: 12vh; }
+      .textSurface, .trackpad { min-height: 260px; }
       .composerHeader { align-items: flex-start; }
     }
   </style>
@@ -258,19 +262,19 @@
       </div>
 
       <div id="textPanel" class="modePanel">
-        <textarea id="text" autofocus placeholder="在这里用豆包输入法语音输入"></textarea>
-        <div class="progressTrack" aria-hidden="true"><div id="progressFill" class="progressFill"></div></div>
-        <div class="toolbar">
+        <div class="textSurface">
+          <textarea id="text" autofocus placeholder="在这里用豆包输入法语音输入"></textarea>
+          <div class="progressTrack" aria-hidden="true"><div id="progressFill" class="progressFill"></div></div>
           <div id="autoSendSentence" class="autoSendSentence">
             <input id="autoSend" type="checkbox" checked aria-label="启用自动发送">
             <span id="autoSendPrefix">在</span>
             <input id="delaySeconds" type="number" inputmode="decimal" min="0.1" max="30" step="0.1" value="2">
             <span id="autoSendSuffix">秒后自动发送！</span>
           </div>
-          <div class="actions">
-            <button id="send" class="sendButton" type="button" aria-label="发送或回车">发送<span class="enterIcon" aria-hidden="true">⏎</span></button>
-            <button id="clear" class="secondary" type="button">清空</button>
-          </div>
+        </div>
+        <div class="actions">
+          <button id="send" class="sendButton" type="button" aria-label="发送或回车">发送<span class="enterIcon" aria-hidden="true">⏎</span></button>
+          <button id="clear" class="secondary" type="button">清空</button>
         </div>
         <div class="keyActions" aria-label="方向键">
           <button id="keyUp" class="keyButton" type="button">↑ 上键</button>
@@ -284,6 +288,7 @@
             <span>滑动控制鼠标</span>
             <span>单指单击：左键</span>
             <span>双指单击：右键</span>
+            <span>双击：拖拽锁定</span>
           </div>
         </div>
         <div class="mouseActions">
@@ -311,6 +316,7 @@
     const DELAY_STORAGE_KEY = "remoteInput.autoSendDelaySeconds";
     const HISTORY_STORAGE_KEY = "remoteInput.history";
     const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
+    const REALTIME_PATH = "/ws";
     const HISTORY_LIMIT = 30;
     const text = document.getElementById("text");
     const textPanel = document.getElementById("textPanel");
@@ -347,9 +353,14 @@
     let tapMoved = false;
     const TAP_MAX_MS = 220;
     const TAP_MAX_MOVE = 8;
+    const DOUBLE_TAP_MAX_MS = 320;
+    let lastSingleTapAt = 0;
+    let dragLocked = false;
     let pendingMouseDx = 0;
     let pendingMouseDy = 0;
     let mouseFrame = null;
+    let realtimeSocket = null;
+    let realtimeReconnectTimer = null;
 
     function focusComposer() {
       if (currentMode !== "text") return;
@@ -386,6 +397,7 @@
         text.blur();
         setStatus("触控板模式。");
       } else {
+        if (dragLocked) setDragLocked(false);
         setStatus("输入模式。");
         focusComposer();
       }
@@ -550,6 +562,67 @@
       pendingTimer = setTimeout(() => sendText({ source: "auto" }), autoSendDelay);
     }
 
+    function getRealtimeUrl() {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      return protocol + "//" + window.location.host + REALTIME_PATH;
+    }
+
+    function scheduleRealtimeReconnect() {
+      if (realtimeReconnectTimer !== null) return;
+      realtimeReconnectTimer = window.setTimeout(() => {
+        realtimeReconnectTimer = null;
+        connectRealtime();
+      }, 900);
+    }
+
+    function connectRealtime() {
+      if (!("WebSocket" in window)) return;
+      if (realtimeSocket && (
+        realtimeSocket.readyState === WebSocket.OPEN ||
+        realtimeSocket.readyState === WebSocket.CONNECTING
+      )) return;
+
+      try {
+        realtimeSocket = new WebSocket(getRealtimeUrl());
+      } catch {
+        realtimeSocket = null;
+        return;
+      }
+
+      realtimeSocket.addEventListener("open", () => {
+        if (realtimeReconnectTimer !== null) {
+          window.clearTimeout(realtimeReconnectTimer);
+          realtimeReconnectTimer = null;
+        }
+      });
+      realtimeSocket.addEventListener("message", (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload && payload.ok === false) setStatus(payload.error || "实时控制失败", true);
+        } catch {
+        }
+      });
+      realtimeSocket.addEventListener("close", scheduleRealtimeReconnect);
+      realtimeSocket.addEventListener("error", () => {
+        try {
+          realtimeSocket.close();
+        } catch {
+        }
+      });
+    }
+
+    async function sendRealtime(message, fallback) {
+      if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+        try {
+          realtimeSocket.send(JSON.stringify(message));
+          return { ok: true, realtime: true };
+        } catch {
+        }
+      }
+      connectRealtime();
+      return fallback();
+    }
+
     async function postJson(url, payload) {
       const response = await fetch(url, {
         method: "POST",
@@ -579,7 +652,10 @@
 
     async function syncMouseMove(dx, dy) {
       try {
-        await postJson("/api/mouse/move", { dx, dy });
+        await sendRealtime(
+          { type: "mouseMove", dx, dy },
+          () => postJson("/api/mouse/move", { dx, dy })
+        );
       } catch (error) {
         setStatus(error.message || "鼠标移动失败", true);
       }
@@ -587,10 +663,32 @@
 
     async function syncMouseClick(button) {
       try {
-        await postJson("/api/mouse/click", { button });
+        await sendRealtime(
+          { type: "mouseClick", button },
+          () => postJson("/api/mouse/click", { button })
+        );
       } catch (error) {
         setStatus(error.message || "鼠标点击失败", true);
       }
+    }
+
+    async function syncMouseButton(button, action) {
+      try {
+        await sendRealtime(
+          { type: "mouseButton", button, action },
+          () => postJson("/api/mouse/button", { button, action })
+        );
+      } catch (error) {
+        setStatus(error.message || "鼠标按键失败", true);
+      }
+    }
+
+    function setDragLocked(locked) {
+      if (dragLocked === locked) return;
+      dragLocked = locked;
+      trackpad.classList.toggle("dragLocked", dragLocked);
+      syncMouseButton("left", locked ? "down" : "up");
+      setStatus(locked ? "拖拽锁定中，滑动即可拖动；单击释放。" : "拖拽已释放。");
     }
 
     async function sendText(options = {}) {
@@ -623,7 +721,10 @@
       syncingKey = true;
 
       try {
-        await postJson("/api/key", { key });
+        await sendRealtime(
+          { type: "key", key },
+          () => postJson("/api/key", { key })
+        );
 
 
       } catch (error) {
@@ -702,12 +803,28 @@
 
     function finishTrackpadTap(cancelled = false) {
       const elapsed = performance.now() - tapStartedAt;
+      const finishedAt = performance.now();
       const shouldClick = !cancelled && tapStartedAt && !tapMoved && elapsed <= TAP_MAX_MS;
       const pointerCount = tapPointerCount;
       resetTrackpadTap();
       if (!shouldClick) return;
-      if (pointerCount >= 2) syncMouseClick("right");
-      else syncMouseClick("left");
+      if (pointerCount >= 2) {
+        lastSingleTapAt = 0;
+        syncMouseClick("right");
+        return;
+      }
+      if (dragLocked) {
+        lastSingleTapAt = 0;
+        setDragLocked(false);
+        return;
+      }
+      if (finishedAt - lastSingleTapAt <= DOUBLE_TAP_MAX_MS) {
+        lastSingleTapAt = 0;
+        setDragLocked(true);
+        return;
+      }
+      lastSingleTapAt = finishedAt;
+      syncMouseClick("left");
     }
 
     trackpad.addEventListener("pointerdown", (event) => {
@@ -764,10 +881,14 @@
     renderAutoSendCopy();
     loadTotalChars();
     renderHistory();
+    connectRealtime();
     primeMobileKeyboard();
     window.addEventListener("pageshow", primeMobileKeyboard);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") primeMobileKeyboard();
+      if (document.visibilityState === "visible") {
+        connectRealtime();
+        primeMobileKeyboard();
+      }
     });
     document.addEventListener("pointerdown", focusComposerOnFirstTouch);
     document.addEventListener("touchstart", focusComposerOnFirstTouch);

@@ -156,6 +156,16 @@ def build_mouse_click_inputs(button: str) -> list[INPUT]:
     return [_make_mouse_input(flags=down_flag), _make_mouse_input(flags=up_flag)]
 
 
+def build_mouse_button_inputs(button: str, action: str) -> list[INPUT]:
+    flags = SUPPORTED_MOUSE_BUTTONS.get(button)
+    if flags is None:
+        raise ValueError(f"Unsupported mouse button: {button}")
+    if action not in {"down", "up"}:
+        raise ValueError(f"Unsupported mouse button action: {action}")
+    down_flag, up_flag = flags
+    return [_make_mouse_input(flags=down_flag if action == "down" else up_flag)]
+
+
 def build_text_inputs(text: str) -> list[INPUT]:
     inputs: list[INPUT] = []
     for unit in _iter_utf16_units(text):
@@ -227,5 +237,16 @@ def click_mouse(button: str) -> dict:
     return {
         "method": "sendinput-mouse-click",
         "button": button,
+        "durationMs": int((time.perf_counter() - started_at) * 1000),
+    }
+
+
+def mouse_button(button: str, action: str) -> dict:
+    started_at = time.perf_counter()
+    _send_inputs(build_mouse_button_inputs(button, action))
+    return {
+        "method": "sendinput-mouse-button",
+        "button": button,
+        "action": action,
         "durationMs": int((time.perf_counter() - started_at) * 1000),
     }

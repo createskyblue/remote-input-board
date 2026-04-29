@@ -46,6 +46,15 @@ class TyperTests(unittest.TestCase):
         self.assertEqual(right_inputs[0].mi.dwFlags, typer.MOUSEEVENTF_RIGHTDOWN)
         self.assertEqual(right_inputs[1].mi.dwFlags, typer.MOUSEEVENTF_RIGHTUP)
 
+    def test_mouse_button_hold_actions_supported(self):
+        left_down = typer.build_mouse_button_inputs("left", "down")
+        left_up = typer.build_mouse_button_inputs("left", "up")
+
+        self.assertEqual(len(left_down), 1)
+        self.assertEqual(len(left_up), 1)
+        self.assertEqual(left_down[0].mi.dwFlags, typer.MOUSEEVENTF_LEFTDOWN)
+        self.assertEqual(left_up[0].mi.dwFlags, typer.MOUSEEVENTF_LEFTUP)
+
 
 if __name__ == "__main__":
     unittest.main()

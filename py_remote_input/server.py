@@ -9,8 +9,9 @@ import socket
 from urllib.parse import urlparse
 
 from py_remote_input.logger import Logger
-from py_remote_input.typer import click_mouse, move_mouse, press_key, type_text
-from py_remote_input.web import handle_request
+from py_remote_input.typer import click_mouse, mouse_button, move_mouse, press_key, type_text
+from py_remote_input.web import handle_realtime_message, handle_request
+from py_remote_input.websocket import build_websocket_accept, encode_websocket_frame, read_websocket_frame
 
 
 def get_local_urls(port: int) -> list[str]:
@@ -45,9 +46,67 @@ def build_history_recorder(history_file_path: Path):
     return record_history
 
 
+def _write_websocket_frame(writer, opcode: int, payload: bytes = b"") -> None:
+    writer.write(encode_websocket_frame(opcode, payload))
+    if hasattr(writer, "flush"):
+        writer.flush()
+
+
+def serve_websocket_messages(
+    reader,
+    writer,
+    logger: Logger,
+    press_key=None,
+    move_mouse=None,
+    click_mouse=None,
+    mouse_button=None,
+) -> None:
+    while True:
+        try:
+            frame = read_websocket_frame(reader)
+            if frame is None:
+                return
+            if frame.opcode == 0x8:
+                _write_websocket_frame(writer, 0x8)
+                return
+            if frame.opcode == 0x9:
+                _write_websocket_frame(writer, 0xA, frame.payload)
+                continue
+            if frame.opcode != 0x1:
+                continue
+
+            try:
+                payload = json.loads(frame.payload.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                _write_websocket_frame(
+                    writer,
+                    0x1,
+                    json.dumps({"ok": False, "error": "Invalid realtime JSON."}).encode("utf-8"),
+                )
+                continue
+
+            result = handle_realtime_message(
+                payload,
+                logger,
+                press_key=press_key,
+                move_mouse=move_mouse,
+                click_mouse=click_mouse,
+                mouse_button=mouse_button,
+            )
+            if not result.get("ok") or result.get("type") == "pong":
+                _write_websocket_frame(writer, 0x1, json.dumps(result, ensure_ascii=False).encode("utf-8"))
+        except OSError as exc:
+            logger.warn("WebSocket connection closed.", {"error": str(exc)})
+            return
+
+
 def build_handler(logger: Logger, record_history):
     class RequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
+            parsed = urlparse(self.path)
+            if parsed.path == "/ws" and self.headers.get("Upgrade", "").lower() == "websocket":
+                self._handle_websocket()
+                return
             self._handle()
 
         def do_POST(self) -> None:  # noqa: N802
@@ -55,6 +114,30 @@ def build_handler(logger: Logger, record_history):
 
         def log_message(self, format: str, *args) -> None:  # noqa: A003
             return
+
+        def _handle_websocket(self) -> None:
+            websocket_key = self.headers.get("Sec-WebSocket-Key", "")
+            if not websocket_key:
+                self.send_error(400, "Missing Sec-WebSocket-Key")
+                return
+
+            self.send_response(101, "Switching Protocols")
+            self.send_header("Upgrade", "websocket")
+            self.send_header("Connection", "Upgrade")
+            self.send_header("Sec-WebSocket-Accept", build_websocket_accept(websocket_key))
+            self.end_headers()
+            self.close_connection = True
+            logger.info("WebSocket connected.")
+            serve_websocket_messages(
+                self.rfile,
+                self.wfile,
+                logger,
+                press_key=press_key,
+                move_mouse=move_mouse,
+                click_mouse=click_mouse,
+                mouse_button=mouse_button,
+            )
+            logger.info("WebSocket disconnected.")
 
         def _handle(self) -> None:
             parsed = urlparse(self.path)
@@ -70,6 +153,7 @@ def build_handler(logger: Logger, record_history):
                 record_history=record_history,
                 move_mouse=move_mouse,
                 click_mouse=click_mouse,
+                mouse_button=mouse_button,
             )
             self.send_response(response.status_code)
             self.send_header("Content-Type", response.content_type)

@@ -3,7 +3,7 @@ import unittest
 from importlib import resources
 
 import py_remote_input
-from py_remote_input.web import handle_request
+from py_remote_input.web import handle_realtime_message, handle_request
 
 
 class FakeLogger:
@@ -48,8 +48,10 @@ class WebTests(unittest.TestCase):
         self.assertIn("loadSavedDelay", html)
         self.assertIn("saveDelayDraft", html)
         self.assertIn("commitDelay", html)
-        self.assertIn("grid-template-columns: 1fr auto;", html)
-        self.assertIn(".toolbar { grid-template-columns: 1fr; }", html)
+        self.assertIn("textSurface", html)
+        self.assertIn(".textSurface { min-height: 220px;", html)
+        self.assertIn(".trackpad { min-height: 220px;", html)
+        self.assertIn(".textSurface, .trackpad { min-height: 260px; }", html)
         self.assertIn(".actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }", html)
         self.assertIn(".modePanel { display: grid; gap: 8px; }", html)
         self.assertIn("TOTAL_CHARS_STORAGE_KEY", html)
@@ -78,15 +80,26 @@ class WebTests(unittest.TestCase):
         self.assertIn("滑动控制鼠标", html)
         self.assertIn("单指单击：左键", html)
         self.assertIn("双指单击：右键", html)
+        self.assertIn("双击：拖拽锁定", html)
+        self.assertIn("button.mouseButton { color: var(--accent-2);", html)
         self.assertIn("syncMouseMove", html)
+        self.assertIn("syncMouseButton", html)
+        self.assertIn("dragLocked", html)
+        self.assertIn("DOUBLE_TAP_MAX_MS", html)
+        self.assertIn("new WebSocket", html)
+        self.assertIn('"/ws"', html)
+        self.assertIn("connectRealtime", html)
+        self.assertIn("sendRealtime", html)
         self.assertIn("activeTrackpadPointers", html)
         self.assertIn("finishTrackpadTap", html)
         self.assertIn('syncMouseClick("left")', html)
         self.assertIn('syncMouseClick("right")', html)
+        self.assertIn('syncMouseButton("left", locked ? "down" : "up")', html)
         self.assertIn('mouseKeyUpButton.addEventListener("click", () => syncKey("up"))', html)
         self.assertIn('mouseKeyDownButton.addEventListener("click", () => syncKey("down"))', html)
         self.assertIn('postJson("/api/mouse/move"', html)
         self.assertIn('postJson("/api/mouse/click"', html)
+        self.assertIn('postJson("/api/mouse/button"', html)
         self.assertIn("/api/key", html)
         self.assertIn("HISTORY_STORAGE_KEY", html)
         self.assertIn("historyList", html)
@@ -232,6 +245,69 @@ class WebTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(calls, ["right"])
+
+    def test_submits_mouse_button_action_to_mouse_button_handler(self):
+        calls = []
+
+        response = handle_request(
+            "POST",
+            "/api/mouse/button",
+            json.dumps({"button": "left", "action": "down"}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+            mouse_button=lambda button, action: calls.append((button, action)) or {"method": "sendinput-mouse-button"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, [("left", "down")])
+
+    def test_realtime_mouse_move_calls_mouse_mover(self):
+        calls = []
+
+        result = handle_realtime_message(
+            {"type": "mouseMove", "dx": 2.4, "dy": -3.6},
+            FakeLogger(),
+            move_mouse=lambda dx, dy: calls.append((dx, dy)) or {"method": "sendinput-mouse-move"},
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(calls, [(2, -4)])
+
+    def test_realtime_mouse_click_calls_mouse_clicker(self):
+        calls = []
+
+        result = handle_realtime_message(
+            {"type": "mouseClick", "button": "left"},
+            FakeLogger(),
+            click_mouse=lambda button: calls.append(button) or {"method": "sendinput-mouse-click"},
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(calls, ["left"])
+
+    def test_realtime_mouse_button_calls_mouse_button_handler(self):
+        calls = []
+
+        result = handle_realtime_message(
+            {"type": "mouseButton", "button": "left", "action": "up"},
+            FakeLogger(),
+            mouse_button=lambda button, action: calls.append((button, action)) or {"method": "sendinput-mouse-button"},
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(calls, [("left", "up")])
+
+    def test_realtime_key_calls_key_presser(self):
+        calls = []
+
+        result = handle_realtime_message(
+            {"type": "key", "key": "down"},
+            FakeLogger(),
+            press_key=lambda key: calls.append(key) or {"method": "sendinput-key"},
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(calls, ["down"])
 
     def test_rejects_empty_text(self):
         response = handle_request(
