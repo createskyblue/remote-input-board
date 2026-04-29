@@ -181,6 +181,13 @@
       text-align: center;
       pointer-events: none;
     }
+    .tapDebug {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
     .mouseActions {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -288,9 +295,10 @@
             <span>滑动控制鼠标</span>
             <span>单指单击：左键</span>
             <span>双指单击：右键</span>
-            <span>双击：拖拽锁定</span>
+            <span>双击按住：拖拽</span>
           </div>
         </div>
+        <div id="tapDebug" class="tapDebug">双击间隔：-- ms</div>
         <div class="mouseActions">
           <button id="mouseLeft" class="mouseButton" type="button">左键</button>
           <button id="mouseRight" class="mouseButton" type="button">右键</button>
@@ -323,6 +331,7 @@
     const touchpadPanel = document.getElementById("touchpadPanel");
     const modeToggle = document.getElementById("modeToggle");
     const trackpad = document.getElementById("trackpad");
+    const tapDebug = document.getElementById("tapDebug");
     const autoSend = document.getElementById("autoSend");
     const delaySeconds = document.getElementById("delaySeconds");
     const autoSendPrefix = document.getElementById("autoSendPrefix");
@@ -353,8 +362,9 @@
     let tapMoved = false;
     const TAP_MAX_MS = 220;
     const TAP_MAX_MOVE = 8;
-    const DOUBLE_TAP_MAX_MS = 320;
-    let lastSingleTapAt = 0;
+    const DOUBLE_TAP_MAX_MS = 180;
+    let lastClickDownAt = 0;
+    let tapStartedDrag = false;
     let dragLocked = false;
     let pendingMouseDx = 0;
     let pendingMouseDy = 0;
@@ -398,6 +408,7 @@
         setStatus("触控板模式。");
       } else {
         if (dragLocked) setDragLocked(false);
+        resetClickChain();
         setStatus("输入模式。");
         focusComposer();
       }
@@ -688,7 +699,7 @@
       dragLocked = locked;
       trackpad.classList.toggle("dragLocked", dragLocked);
       syncMouseButton("left", locked ? "down" : "up");
-      setStatus(locked ? "拖拽锁定中，滑动即可拖动；单击释放。" : "拖拽已释放。");
+      setStatus(locked ? "拖拽中，松开结束。" : "拖拽结束。");
     }
 
     async function sendText(options = {}) {
@@ -799,40 +810,61 @@
       tapStartedAt = 0;
       tapPointerCount = 0;
       tapMoved = false;
+      tapStartedDrag = false;
+    }
+
+    function resetClickChain() {
+      lastClickDownAt = 0;
+    }
+
+    function updateTapDebug(tapIntervalMs, detail = "") {
+      const value = tapIntervalMs === null ? "--" : Math.round(tapIntervalMs).toString();
+      tapDebug.textContent = "双击间隔：" + value + " ms" + (detail ? "，" + detail : "");
+    }
+
+    function startDragFromDoubleTap(tapIntervalMs) {
+      resetClickChain();
+      tapStartedDrag = true;
+      updateTapDebug(tapIntervalMs, "已触发拖拽");
+      setDragLocked(true);
     }
 
     function finishTrackpadTap(cancelled = false) {
       const elapsed = performance.now() - tapStartedAt;
-      const finishedAt = performance.now();
       const shouldClick = !cancelled && tapStartedAt && !tapMoved && elapsed <= TAP_MAX_MS;
       const pointerCount = tapPointerCount;
+      const startedAt = tapStartedAt;
+      const startedDrag = tapStartedDrag;
       resetTrackpadTap();
-      if (!shouldClick) return;
+      if (startedDrag) return;
+      if (!shouldClick) {
+        resetClickChain();
+        return;
+      }
       if (pointerCount >= 2) {
-        lastSingleTapAt = 0;
+        resetClickChain();
         syncMouseClick("right");
         return;
       }
-      if (dragLocked) {
-        lastSingleTapAt = 0;
-        setDragLocked(false);
-        return;
-      }
-      if (finishedAt - lastSingleTapAt <= DOUBLE_TAP_MAX_MS) {
-        lastSingleTapAt = 0;
-        setDragLocked(true);
-        return;
-      }
-      lastSingleTapAt = finishedAt;
       syncMouseClick("left");
+      lastClickDownAt = startedAt;
     }
 
     trackpad.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       if (activeTrackpadPointers.size === 0) {
-        tapStartedAt = performance.now();
+        const startedAt = performance.now();
+        tapStartedAt = startedAt;
         tapPointerCount = 0;
         tapMoved = false;
+        tapStartedDrag = false;
+        const tapIntervalMs = lastClickDownAt > 0 ? startedAt - lastClickDownAt : null;
+        if (!dragLocked && tapIntervalMs !== null && tapIntervalMs < DOUBLE_TAP_MAX_MS) {
+          startDragFromDoubleTap(tapIntervalMs);
+        } else {
+          updateTapDebug(tapIntervalMs, tapIntervalMs === null ? "" : "未触发");
+          resetClickChain();
+        }
       }
       activeTrackpadPointers.set(event.pointerId, {
         startX: event.clientX,
@@ -849,7 +881,13 @@
       event.preventDefault();
       const totalDx = event.clientX - pointer.startX;
       const totalDy = event.clientY - pointer.startY;
-      if (Math.hypot(totalDx, totalDy) > TAP_MAX_MOVE) tapMoved = true;
+      if (Math.hypot(totalDx, totalDy) > TAP_MAX_MOVE) {
+        tapMoved = true;
+        if (!dragLocked) {
+          resetClickChain();
+          updateTapDebug(null, "已重置");
+        }
+      }
       const dx = event.clientX - pointer.lastX;
       const dy = event.clientY - pointer.lastY;
       pointer.lastX = event.clientX;
@@ -858,11 +896,25 @@
     });
     trackpad.addEventListener("pointerup", (event) => {
       activeTrackpadPointers.delete(event.pointerId);
-      if (activeTrackpadPointers.size === 0) finishTrackpadTap();
+      if (activeTrackpadPointers.size === 0) {
+        if (dragLocked) {
+          setDragLocked(false);
+          resetTrackpadTap();
+          return;
+        }
+        finishTrackpadTap();
+      }
     });
     trackpad.addEventListener("pointercancel", (event) => {
       activeTrackpadPointers.delete(event.pointerId);
-      if (activeTrackpadPointers.size === 0) finishTrackpadTap(true);
+      if (activeTrackpadPointers.size === 0) {
+        if (dragLocked) {
+          setDragLocked(false);
+          resetTrackpadTap();
+          return;
+        }
+        finishTrackpadTap(true);
+      }
     });
     clearHistory.addEventListener("click", () => {
       saveHistory([]);
