@@ -71,26 +71,34 @@
       resize: vertical;
       outline: none;
     }
-    textarea:focus, .delayControl input:focus {
+    textarea:focus, .autoSendSentence input[type="number"]:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
     }
     .toolbar {
       display: grid;
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: 1fr auto;
       gap: 12px;
       align-items: center;
     }
-    .switch, .delayControl {
+    .autoSendSentence {
       min-height: 48px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
       color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
       white-space: nowrap;
     }
-    .switch input { width: 22px; height: 22px; accent-color: var(--accent); }
-    .delayControl input {
+    .autoSendSentence input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      margin: 0 4px 0 0;
+      accent-color: var(--accent);
+      flex: 0 0 auto;
+    }
+    .autoSendSentence input[type="number"] {
       width: 72px;
       height: 40px;
       border: 1px solid var(--line);
@@ -163,8 +171,7 @@
     .statusbar.error { color: var(--danger); }
     @media (max-width: 520px) {
       body { padding: 10px; }
-      .toolbar { grid-template-columns: auto 1fr; }
-      .delayControl { justify-content: flex-end; }
+      .toolbar { grid-template-columns: 1fr; }
       .actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
       textarea { min-height: 12vh; }
       .composerHeader { align-items: flex-start; }
@@ -181,12 +188,12 @@
       <textarea id="text" autofocus placeholder="在这里用豆包输入法语音输入"></textarea>
       <div class="progressTrack" aria-hidden="true"><div id="progressFill" class="progressFill"></div></div>
       <div class="toolbar">
-        <label class="switch"><input id="autoSend" type="checkbox" checked><span>自动发送</span></label>
-        <label class="delayControl" for="delaySeconds">
-          <span>延迟</span>
+        <div id="autoSendSentence" class="autoSendSentence">
+          <input id="autoSend" type="checkbox" checked aria-label="启用自动发送">
+          <span id="autoSendPrefix">在</span>
           <input id="delaySeconds" type="number" inputmode="decimal" min="0.1" max="30" step="0.1" value="2">
-          <span>秒</span>
-        </label>
+          <span id="autoSendSuffix">秒后自动发送！</span>
+        </div>
         <div class="actions">
           <button id="send" class="sendButton" type="button" aria-label="发送或回车">发送<span class="enterIcon" aria-hidden="true">⏎</span></button>
           <button id="clear" class="secondary" type="button">清空</button>
@@ -218,6 +225,8 @@
     const text = document.getElementById("text");
     const autoSend = document.getElementById("autoSend");
     const delaySeconds = document.getElementById("delaySeconds");
+    const autoSendPrefix = document.getElementById("autoSendPrefix");
+    const autoSendSuffix = document.getElementById("autoSendSuffix");
     const sendButton = document.getElementById("send");
     const clearButton = document.getElementById("clear");
     const keyUpButton = document.getElementById("keyUp");
@@ -383,6 +392,11 @@
       window.localStorage.setItem(AUTO_SEND_STORAGE_KEY, autoSend.checked ? "true" : "false");
     }
 
+    function renderAutoSendCopy() {
+      autoSendPrefix.textContent = autoSend.checked ? "在" : "要在";
+      autoSendSuffix.textContent = autoSend.checked ? "秒后自动发送！" : "秒后自动发送吗？";
+    }
+
     function saveDelayDraft() {
       window.localStorage.setItem(DELAY_STORAGE_KEY, delaySeconds.value);
     }
@@ -508,6 +522,7 @@
     });
     autoSend.addEventListener("change", () => {
       saveAutoSend();
+      renderAutoSendCopy();
       if (autoSend.checked) startCountdown();
       else {
         stopCountdown();
@@ -531,6 +546,7 @@
 
     loadSavedAutoSend();
     loadSavedDelay();
+    renderAutoSendCopy();
     loadTotalChars();
     renderHistory();
     primeMobileKeyboard();
