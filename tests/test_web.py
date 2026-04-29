@@ -33,7 +33,16 @@ class WebTests(unittest.TestCase):
         self.assertNotIn("手机语音输入后发送到电脑当前光标位置", html)
         self.assertIn("autoSend", html)
         self.assertIn("delaySeconds", html)
+        self.assertIn("AUTO_SEND_STORAGE_KEY", html)
+        self.assertIn("remoteInput.autoSendEnabled", html)
+        self.assertIn("loadSavedAutoSend", html)
+        self.assertIn("saveAutoSend", html)
         self.assertIn("remoteInput.autoSendDelaySeconds", html)
+        self.assertIn("loadSavedDelay", html)
+        self.assertIn("saveDelayDraft", html)
+        self.assertIn("commitDelay", html)
+        self.assertIn(".toolbar { grid-template-columns: auto 1fr; }", html)
+        self.assertIn(".actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }", html)
         self.assertIn("TOTAL_CHARS_STORAGE_KEY", html)
         self.assertIn("remoteInput.totalChars", html)
         self.assertIn("totalChars", html)
@@ -44,6 +53,12 @@ class WebTests(unittest.TestCase):
         self.assertIn("syncEnter", html)
         self.assertIn("sendOrEnter", html)
         self.assertIn("sendOnEnter", html)
+        self.assertIn('aria-label="发送或回车"', html)
+        self.assertIn('class="enterIcon"', html)
+        self.assertIn('id="keyUp"', html)
+        self.assertIn('id="keyDown"', html)
+        self.assertIn('syncKey("up")', html)
+        self.assertIn('syncKey("down")', html)
         self.assertIn("/api/key", html)
         self.assertIn("HISTORY_STORAGE_KEY", html)
         self.assertIn("historyList", html)
@@ -132,6 +147,25 @@ class WebTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(calls, ["backspace"])
+
+    def test_submits_arrow_key_to_key_presser(self):
+        calls = []
+
+        def press_key(key):
+            calls.append(key)
+            return {"method": "sendinput-key", "durationMs": 5, "windowTitle": "Notepad"}
+
+        response = handle_request(
+            "POST",
+            "/api/key",
+            json.dumps({"key": "up"}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+            press_key=press_key,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, ["up"])
 
     def test_rejects_empty_text(self):
         response = handle_request(

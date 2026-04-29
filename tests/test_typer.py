@@ -19,6 +19,15 @@ class TyperTests(unittest.TestCase):
         self.assertEqual(inputs[0].ki.wVk, typer.VK_BACK)
         self.assertEqual(inputs[1].ki.wVk, typer.VK_BACK)
 
+    def test_arrow_keys_supported(self):
+        up_inputs = typer.build_key_inputs("up")
+        down_inputs = typer.build_key_inputs("down")
+
+        self.assertEqual(up_inputs[0].ki.wVk, typer.VK_UP)
+        self.assertEqual(up_inputs[1].ki.wVk, typer.VK_UP)
+        self.assertEqual(down_inputs[0].ki.wVk, typer.VK_DOWN)
+        self.assertEqual(down_inputs[1].ki.wVk, typer.VK_DOWN)
+
 
 if __name__ == "__main__":
     unittest.main()

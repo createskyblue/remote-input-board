@@ -103,6 +103,11 @@
       outline: none;
     }
     .actions { display: flex; gap: 10px; }
+    .keyActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
     button {
       min-height: 48px;
       border: 0;
@@ -114,7 +119,25 @@
       font-weight: 800;
       cursor: pointer;
     }
+    .sendButton {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .enterIcon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 3px;
+      font-size: 24px;
+      line-height: 1;
+      transform: translateY(-1px);
+    }
     button.secondary { color: var(--accent); background: rgba(15, 123, 95, 0.1); }
+    button.keyButton {
+      color: var(--accent-2);
+      background: rgba(29, 79, 145, 0.1);
+    }
     button:disabled { opacity: 0.62; cursor: wait; }
     .progressTrack { height: 8px; overflow: hidden; border-radius: 999px; background: #dce6e2; }
     .progressFill {
@@ -140,8 +163,9 @@
     .statusbar.error { color: var(--danger); }
     @media (max-width: 520px) {
       body { padding: 10px; }
-      .toolbar { grid-template-columns: 1fr; }
-      .actions { display: grid; grid-template-columns: 1fr 1fr; }
+      .toolbar { grid-template-columns: auto 1fr; }
+      .delayControl { justify-content: flex-end; }
+      .actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
       textarea { min-height: 12vh; }
       .composerHeader { align-items: flex-start; }
     }
@@ -164,9 +188,13 @@
           <span>秒</span>
         </label>
         <div class="actions">
-          <button id="send" type="button">发送</button>
+          <button id="send" class="sendButton" type="button" aria-label="发送或回车">发送<span class="enterIcon" aria-hidden="true">⏎</span></button>
           <button id="clear" class="secondary" type="button">清空</button>
         </div>
+      </div>
+      <div class="keyActions" aria-label="方向键">
+        <button id="keyUp" class="keyButton" type="button">↑ 上键</button>
+        <button id="keyDown" class="keyButton" type="button">↓ 下键</button>
       </div>
     </section>
 
@@ -182,6 +210,7 @@
   </main>
 
   <script>
+    const AUTO_SEND_STORAGE_KEY = "remoteInput.autoSendEnabled";
     const DELAY_STORAGE_KEY = "remoteInput.autoSendDelaySeconds";
     const HISTORY_STORAGE_KEY = "remoteInput.history";
     const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
@@ -191,6 +220,8 @@
     const delaySeconds = document.getElementById("delaySeconds");
     const sendButton = document.getElementById("send");
     const clearButton = document.getElementById("clear");
+    const keyUpButton = document.getElementById("keyUp");
+    const keyDownButton = document.getElementById("keyDown");
     const statusNode = document.getElementById("status");
     const progressFill = document.getElementById("progressFill");
     const historyList = document.getElementById("historyList");
@@ -343,6 +374,15 @@
       if (savedValue !== null) delaySeconds.value = normalizeDelaySeconds(savedValue).toString();
     }
 
+    function loadSavedAutoSend() {
+      const savedValue = window.localStorage.getItem(AUTO_SEND_STORAGE_KEY);
+      if (savedValue !== null) autoSend.checked = savedValue === "true";
+    }
+
+    function saveAutoSend() {
+      window.localStorage.setItem(AUTO_SEND_STORAGE_KEY, autoSend.checked ? "true" : "false");
+    }
+
     function saveDelayDraft() {
       window.localStorage.setItem(DELAY_STORAGE_KEY, delaySeconds.value);
     }
@@ -467,6 +507,7 @@
       startCountdown();
     });
     autoSend.addEventListener("change", () => {
+      saveAutoSend();
       if (autoSend.checked) startCountdown();
       else {
         stopCountdown();
@@ -474,6 +515,8 @@
       }
     });
     sendButton.addEventListener("click", sendOrEnter);
+    keyUpButton.addEventListener("click", () => syncKey("up"));
+    keyDownButton.addEventListener("click", () => syncKey("down"));
     clearHistory.addEventListener("click", () => {
       saveHistory([]);
       renderHistory();
@@ -486,6 +529,7 @@
       focusComposer();
     });
 
+    loadSavedAutoSend();
     loadSavedDelay();
     loadTotalChars();
     renderHistory();

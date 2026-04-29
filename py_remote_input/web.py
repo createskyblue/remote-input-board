@@ -63,7 +63,7 @@ def handle_request(method: str, path: str, body: bytes, type_text, logger, press
             return json_response(400, {"error": "Invalid JSON body."})
 
         key = payload.get("key", "")
-        if key not in {"backspace", "delete", "enter"}:
+        if key not in {"backspace", "delete", "down", "enter", "up"}:
             return json_response(400, {"error": f"Unsupported key: {key}"})
         if press_key is None:
             return json_response(500, {"error": "Key input is not configured."})

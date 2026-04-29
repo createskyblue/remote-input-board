@@ -58,12 +58,16 @@ KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_UNICODE = 0x0004
 VK_BACK = 0x08
 VK_RETURN = 0x0D
+VK_UP = 0x26
+VK_DOWN = 0x28
 VK_DELETE = 0x2E
 
 SUPPORTED_KEYS = {
     "backspace": VK_BACK,
     "delete": VK_DELETE,
+    "down": VK_DOWN,
     "enter": VK_RETURN,
+    "up": VK_UP,
 }
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
