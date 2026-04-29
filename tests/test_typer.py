@@ -1,3 +1,4 @@
+import ctypes
 import unittest
 
 from py_remote_input import typer
@@ -36,6 +37,16 @@ class TyperTests(unittest.TestCase):
         self.assertEqual(inputs[0].mi.dx, 12)
         self.assertEqual(inputs[0].mi.dy, -7)
         self.assertEqual(inputs[0].mi.dwFlags, typer.MOUSEEVENTF_MOVE)
+
+    def test_mouse_scroll_uses_wheel_inputs(self):
+        inputs = typer.build_mouse_scroll_inputs(120, -240)
+
+        self.assertEqual(len(inputs), 2)
+        self.assertEqual(inputs[0].type, typer.INPUT_MOUSE)
+        self.assertEqual(inputs[0].mi.dwFlags, typer.MOUSEEVENTF_HWHEEL)
+        self.assertEqual(ctypes.c_int32(inputs[0].mi.mouseData).value, 120)
+        self.assertEqual(inputs[1].mi.dwFlags, typer.MOUSEEVENTF_WHEEL)
+        self.assertEqual(ctypes.c_int32(inputs[1].mi.mouseData).value, -240)
 
     def test_mouse_buttons_supported(self):
         left_inputs = typer.build_mouse_click_inputs("left")

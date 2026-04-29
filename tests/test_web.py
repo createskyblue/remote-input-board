@@ -80,13 +80,20 @@ class WebTests(unittest.TestCase):
         self.assertIn("滑动控制鼠标", html)
         self.assertIn("单指单击：左键", html)
         self.assertIn("双指单击：右键", html)
+        self.assertIn("双指横放：上下滚动", html)
+        self.assertIn("双指竖放：左右滚动", html)
         self.assertIn("双击按住：拖拽", html)
         self.assertIn("tapDebug", html)
         self.assertIn("双击间隔：-- ms", html)
         self.assertIn("updateTapDebug", html)
         self.assertIn("button.mouseButton { color: var(--accent-2);", html)
         self.assertIn("syncMouseMove", html)
+        self.assertIn("syncMouseScroll", html)
         self.assertIn("syncMouseButton", html)
+        self.assertIn("TRACKPAD_HORIZONTAL_SCROLL_SCALE", html)
+        self.assertIn("TRACKPAD_VERTICAL_SCROLL_SCALE", html)
+        self.assertIn("const TRACKPAD_HORIZONTAL_SCROLL_SCALE = 4;", html)
+        self.assertIn("const TRACKPAD_VERTICAL_SCROLL_SCALE = 18;", html)
         self.assertIn("TRACKPAD_BASE_SPEED", html)
         self.assertIn("TRACKPAD_ACCELERATION_SPEED_THRESHOLD", html)
         self.assertIn("TRACKPAD_ACCELERATION_MAX", html)
@@ -105,6 +112,14 @@ class WebTests(unittest.TestCase):
         self.assertIn("const normalized = normalizeTrackpadDelta(dx, dy, pointer.verticalScale);", html)
         self.assertIn("const adjusted = applyTrackpadAcceleration(normalized.dx, normalized.dy, elapsedMs);", html)
         self.assertIn("queueMouseMove(adjusted.dx, adjusted.dy)", html)
+        self.assertIn("getTwoFingerScrollAxis", html)
+        self.assertIn("const scrollAxis = getTwoFingerScrollAxis();", html)
+        self.assertIn('const scrollDx = scrollAxis === "horizontal" ? dx * TRACKPAD_HORIZONTAL_SCROLL_SCALE : 0;', html)
+        self.assertIn('const scrollDy = scrollAxis === "vertical" ? -dy * TRACKPAD_VERTICAL_SCROLL_SCALE : 0;', html)
+        self.assertIn("queueMouseScroll(scrollDx, scrollDy)", html)
+        self.assertNotIn("getTrackpadCentroid", html)
+        self.assertIn('sendRealtime(\n          { type: "mouseScroll", dx, dy }', html)
+        self.assertIn('postJson("/api/mouse/scroll", { dx, dy })', html)
         self.assertIn("lastAt", html)
         self.assertIn("dragLocked", html)
         self.assertIn("DOUBLE_TAP_MAX_MS", html)
@@ -272,6 +287,25 @@ class WebTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(calls, [(12, -8)])
 
+    def test_submits_mouse_scroll_to_mouse_scroller(self):
+        calls = []
+
+        def scroll_mouse(dx, dy):
+            calls.append((dx, dy))
+            return {"method": "sendinput-mouse-scroll", "durationMs": 3}
+
+        response = handle_request(
+            "POST",
+            "/api/mouse/scroll",
+            json.dumps({"dx": 119.6, "dy": -240.4}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+            scroll_mouse=scroll_mouse,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, [(120, -240)])
+
     def test_submits_mouse_click_to_mouse_clicker(self):
         calls = []
 
@@ -317,6 +351,18 @@ class WebTests(unittest.TestCase):
 
         self.assertEqual(result["ok"], True)
         self.assertEqual(calls, [(2, -4)])
+
+    def test_realtime_mouse_scroll_calls_mouse_scroller(self):
+        calls = []
+
+        result = handle_realtime_message(
+            {"type": "mouseScroll", "dx": 24.4, "dy": -49.6},
+            FakeLogger(),
+            scroll_mouse=lambda dx, dy: calls.append((dx, dy)) or {"method": "sendinput-mouse-scroll"},
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(calls, [(24, -50)])
 
     def test_realtime_mouse_click_calls_mouse_clicker(self):
         calls = []

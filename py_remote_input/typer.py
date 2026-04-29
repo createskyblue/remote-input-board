@@ -62,6 +62,8 @@ MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
 MOUSEEVENTF_RIGHTDOWN = 0x0008
 MOUSEEVENTF_RIGHTUP = 0x0010
+MOUSEEVENTF_WHEEL = 0x0800
+MOUSEEVENTF_HWHEEL = 0x01000
 VK_BACK = 0x08
 VK_RETURN = 0x0D
 VK_UP = 0x26
@@ -121,13 +123,13 @@ def _make_key_input(virtual_key: int, key_up: bool) -> INPUT:
     )
 
 
-def _make_mouse_input(dx: int = 0, dy: int = 0, flags: int = 0) -> INPUT:
+def _make_mouse_input(dx: int = 0, dy: int = 0, mouse_data: int = 0, flags: int = 0) -> INPUT:
     return INPUT(
         type=INPUT_MOUSE,
         mi=MOUSEINPUT(
             dx=dx,
             dy=dy,
-            mouseData=0,
+            mouseData=mouse_data,
             dwFlags=flags,
             time=0,
             dwExtraInfo=0,
@@ -146,6 +148,15 @@ def build_mouse_move_inputs(dx: int, dy: int) -> list[INPUT]:
     if dx == 0 and dy == 0:
         return []
     return [_make_mouse_input(dx=dx, dy=dy, flags=MOUSEEVENTF_MOVE)]
+
+
+def build_mouse_scroll_inputs(dx: int, dy: int) -> list[INPUT]:
+    inputs: list[INPUT] = []
+    if dx != 0:
+        inputs.append(_make_mouse_input(mouse_data=dx, flags=MOUSEEVENTF_HWHEEL))
+    if dy != 0:
+        inputs.append(_make_mouse_input(mouse_data=dy, flags=MOUSEEVENTF_WHEEL))
+    return inputs
 
 
 def build_mouse_click_inputs(button: str) -> list[INPUT]:
@@ -225,6 +236,17 @@ def move_mouse(dx: int, dy: int) -> dict:
     _send_inputs(build_mouse_move_inputs(dx, dy))
     return {
         "method": "sendinput-mouse-move",
+        "dx": dx,
+        "dy": dy,
+        "durationMs": int((time.perf_counter() - started_at) * 1000),
+    }
+
+
+def scroll_mouse(dx: int, dy: int) -> dict:
+    started_at = time.perf_counter()
+    _send_inputs(build_mouse_scroll_inputs(dx, dy))
+    return {
+        "method": "sendinput-mouse-scroll",
         "dx": dx,
         "dy": dy,
         "durationMs": int((time.perf_counter() - started_at) * 1000),

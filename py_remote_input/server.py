@@ -9,7 +9,7 @@ import socket
 from urllib.parse import urlparse
 
 from py_remote_input.logger import Logger
-from py_remote_input.typer import click_mouse, mouse_button, move_mouse, press_key, type_text
+from py_remote_input.typer import click_mouse, mouse_button, move_mouse, press_key, scroll_mouse, type_text
 from py_remote_input.web import handle_realtime_message, handle_request
 from py_remote_input.websocket import build_websocket_accept, encode_websocket_frame, read_websocket_frame
 
@@ -58,6 +58,7 @@ def serve_websocket_messages(
     logger: Logger,
     press_key=None,
     move_mouse=None,
+    scroll_mouse=None,
     click_mouse=None,
     mouse_button=None,
 ) -> None:
@@ -90,6 +91,7 @@ def serve_websocket_messages(
                 logger,
                 press_key=press_key,
                 move_mouse=move_mouse,
+                scroll_mouse=scroll_mouse,
                 click_mouse=click_mouse,
                 mouse_button=mouse_button,
             )
@@ -134,6 +136,7 @@ def build_handler(logger: Logger, record_history):
                 logger,
                 press_key=press_key,
                 move_mouse=move_mouse,
+                scroll_mouse=scroll_mouse,
                 click_mouse=click_mouse,
                 mouse_button=mouse_button,
             )
@@ -152,6 +155,7 @@ def build_handler(logger: Logger, record_history):
                 press_key=press_key,
                 record_history=record_history,
                 move_mouse=move_mouse,
+                scroll_mouse=scroll_mouse,
                 click_mouse=click_mouse,
                 mouse_button=mouse_button,
             )

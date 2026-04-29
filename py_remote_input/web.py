@@ -46,6 +46,7 @@ def handle_realtime_message(
     logger,
     press_key=None,
     move_mouse=None,
+    scroll_mouse=None,
     click_mouse=None,
     mouse_button=None,
 ) -> dict:
@@ -75,6 +76,20 @@ def handle_realtime_message(
             if rounded_dx == 0 and rounded_dy == 0:
                 return {"ok": True, "method": "sendinput-mouse-move", "dx": 0, "dy": 0}
             return {"ok": True, **(move_mouse(rounded_dx, rounded_dy) or {})}
+
+        if message_type == "mouseScroll":
+            dx = payload.get("dx")
+            dy = payload.get("dy")
+            if not _is_finite_number(dx) or not _is_finite_number(dy):
+                return {"ok": False, "error": "Mouse scroll dx and dy are required."}
+            if scroll_mouse is None:
+                return {"ok": False, "error": "Mouse scroll input is not configured."}
+
+            rounded_dx = int(round(dx))
+            rounded_dy = int(round(dy))
+            if rounded_dx == 0 and rounded_dy == 0:
+                return {"ok": True, "method": "sendinput-mouse-scroll", "dx": 0, "dy": 0}
+            return {"ok": True, **(scroll_mouse(rounded_dx, rounded_dy) or {})}
 
         if message_type == "mouseClick":
             button = payload.get("button", "")
@@ -113,6 +128,7 @@ def handle_request(
     press_key=None,
     record_history=None,
     move_mouse=None,
+    scroll_mouse=None,
     click_mouse=None,
     mouse_button=None,
 ) -> Response:
@@ -185,6 +201,32 @@ def handle_request(
             return json_response(200, {"ok": True, **result})
         except Exception as exc:  # noqa: BLE001
             logger.error("Mouse move request failed.", {"dx": rounded_dx, "dy": rounded_dy, "error": str(exc)})
+            return json_response(500, {"error": str(exc)})
+
+    if method == "POST" and path == "/api/mouse/scroll":
+        payload = _read_json_body(body, logger)
+        if payload is None:
+            return json_response(400, {"error": "Invalid JSON body."})
+
+        dx = payload.get("dx")
+        dy = payload.get("dy")
+        if not _is_finite_number(dx) or not _is_finite_number(dy):
+            return json_response(400, {"error": "Mouse scroll dx and dy are required."})
+        if scroll_mouse is None:
+            return json_response(500, {"error": "Mouse scroll input is not configured."})
+
+        rounded_dx = int(round(dx))
+        rounded_dy = int(round(dy))
+        if rounded_dx == 0 and rounded_dy == 0:
+            return json_response(200, {"ok": True, "method": "sendinput-mouse-scroll", "dx": 0, "dy": 0})
+
+        logger.info("Received mouse scroll request.", {"dx": rounded_dx, "dy": rounded_dy})
+        try:
+            result = scroll_mouse(rounded_dx, rounded_dy)
+            logger.info("Mouse scroll request completed.", result)
+            return json_response(200, {"ok": True, **result})
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Mouse scroll request failed.", {"dx": rounded_dx, "dy": rounded_dy, "error": str(exc)})
             return json_response(500, {"error": str(exc)})
 
     if method == "POST" and path == "/api/mouse/click":

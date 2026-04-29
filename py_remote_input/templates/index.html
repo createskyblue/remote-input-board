@@ -295,6 +295,8 @@
             <span>滑动控制鼠标</span>
             <span>单指单击：左键</span>
             <span>双指单击：右键</span>
+            <span>双指横放：上下滚动</span>
+            <span>双指竖放：左右滚动</span>
             <span>双击按住：拖拽</span>
           </div>
         </div>
@@ -368,13 +370,18 @@
     const TRACKPAD_ACCELERATION_MAX = 3.0;
     const TRACKPAD_ACCELERATION_GAIN = 1.85;
     const TRACKPAD_VERTICAL_SCALE_MIN = 0.68;
+    const TRACKPAD_HORIZONTAL_SCROLL_SCALE = 4;
+    const TRACKPAD_VERTICAL_SCROLL_SCALE = 18;
     let lastClickDownAt = 0;
     let pendingSingleTapTimer = null;
     let tapStartedDrag = false;
     let dragLocked = false;
     let pendingMouseDx = 0;
     let pendingMouseDy = 0;
+    let pendingScrollDx = 0;
+    let pendingScrollDy = 0;
     let mouseFrame = null;
+    let scrollFrame = null;
     let realtimeSocket = null;
     let realtimeReconnectTimer = null;
 
@@ -667,6 +674,22 @@
       if (mouseFrame === null) mouseFrame = window.requestAnimationFrame(flushMouseMove);
     }
 
+    function flushMouseScroll() {
+      scrollFrame = null;
+      const dx = Math.round(pendingScrollDx);
+      const dy = Math.round(pendingScrollDy);
+      pendingScrollDx = 0;
+      pendingScrollDy = 0;
+      if (dx === 0 && dy === 0) return;
+      syncMouseScroll(dx, dy);
+    }
+
+    function queueMouseScroll(dx, dy) {
+      pendingScrollDx += dx;
+      pendingScrollDy += dy;
+      if (scrollFrame === null) scrollFrame = window.requestAnimationFrame(flushMouseScroll);
+    }
+
     function applyTrackpadAcceleration(dx, dy, elapsedMs) {
       const distance = Math.hypot(dx, dy);
       if (distance === 0) return { dx, dy };
@@ -689,6 +712,14 @@
       return { dx, dy: dy * verticalScale };
     }
 
+    function getTwoFingerScrollAxis() {
+      const pointers = Array.from(activeTrackpadPointers.values());
+      if (pointers.length < 2) return null;
+      const first = pointers[0];
+      const second = pointers[1];
+      return Math.abs(second.lastX - first.lastX) >= Math.abs(second.lastY - first.lastY) ? "vertical" : "horizontal";
+    }
+
     async function syncMouseMove(dx, dy) {
       try {
         await sendRealtime(
@@ -697,6 +728,17 @@
         );
       } catch (error) {
         setStatus(error.message || "鼠标移动失败", true);
+      }
+    }
+
+    async function syncMouseScroll(dx, dy) {
+      try {
+        await sendRealtime(
+          { type: "mouseScroll", dx, dy },
+          () => postJson("/api/mouse/scroll", { dx, dy })
+        );
+      } catch (error) {
+        setStatus(error.message || "鼠标滚轮失败", true);
       }
     }
 
@@ -949,7 +991,14 @@
       pointer.lastX = event.clientX;
       pointer.lastY = event.clientY;
       pointer.lastAt = event.timeStamp;
-      if (activeTrackpadPointers.size === 1) queueMouseMove(adjusted.dx, adjusted.dy);
+      if (activeTrackpadPointers.size >= 2) {
+        const scrollAxis = getTwoFingerScrollAxis();
+        const scrollDx = scrollAxis === "horizontal" ? dx * TRACKPAD_HORIZONTAL_SCROLL_SCALE : 0;
+        const scrollDy = scrollAxis === "vertical" ? -dy * TRACKPAD_VERTICAL_SCROLL_SCALE : 0;
+        queueMouseScroll(scrollDx, scrollDy);
+      } else if (activeTrackpadPointers.size === 1 && tapPointerCount === 1) {
+        queueMouseMove(adjusted.dx, adjusted.dy);
+      }
     });
     trackpad.addEventListener("pointerup", (event) => {
       activeTrackpadPointers.delete(event.pointerId);
