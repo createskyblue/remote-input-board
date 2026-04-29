@@ -363,9 +363,10 @@
     const TAP_MAX_MS = 220;
     const TAP_MAX_MOVE = 8;
     const DOUBLE_TAP_MAX_MS = 180;
-    const TRACKPAD_ACCELERATION_SPEED_THRESHOLD = 0.45;
-    const TRACKPAD_ACCELERATION_MAX = 1.8;
-    const TRACKPAD_ACCELERATION_GAIN = 1.4;
+    const TRACKPAD_BASE_SPEED = 1.35;
+    const TRACKPAD_ACCELERATION_SPEED_THRESHOLD = 0.28;
+    const TRACKPAD_ACCELERATION_MAX = 3.0;
+    const TRACKPAD_ACCELERATION_GAIN = 1.85;
     const TRACKPAD_VERTICAL_SCALE_MIN = 0.68;
     let lastClickDownAt = 0;
     let pendingSingleTapTimer = null;
@@ -671,10 +672,10 @@
       if (distance === 0) return { dx, dy };
 
       const speed = distance / Math.max(8, elapsedMs);
-      if (speed <= TRACKPAD_ACCELERATION_SPEED_THRESHOLD) return { dx, dy };
-
-      const boost = Math.pow(speed - TRACKPAD_ACCELERATION_SPEED_THRESHOLD, 1.15) * TRACKPAD_ACCELERATION_GAIN;
-      const factor = Math.min(TRACKPAD_ACCELERATION_MAX, 1 + boost);
+      const boost = speed <= TRACKPAD_ACCELERATION_SPEED_THRESHOLD
+        ? 0
+        : Math.pow(speed - TRACKPAD_ACCELERATION_SPEED_THRESHOLD, 1.15) * TRACKPAD_ACCELERATION_GAIN;
+      const factor = Math.min(TRACKPAD_ACCELERATION_MAX, TRACKPAD_BASE_SPEED + boost);
       return { dx: dx * factor, dy: dy * factor };
     }
 
