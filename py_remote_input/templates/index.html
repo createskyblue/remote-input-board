@@ -363,6 +363,9 @@
     const TAP_MAX_MS = 220;
     const TAP_MAX_MOVE = 8;
     const DOUBLE_TAP_MAX_MS = 180;
+    const TRACKPAD_ACCELERATION_SPEED_THRESHOLD = 0.45;
+    const TRACKPAD_ACCELERATION_MAX = 1.8;
+    const TRACKPAD_ACCELERATION_GAIN = 1.4;
     let lastClickDownAt = 0;
     let tapStartedDrag = false;
     let dragLocked = false;
@@ -661,6 +664,18 @@
       if (mouseFrame === null) mouseFrame = window.requestAnimationFrame(flushMouseMove);
     }
 
+    function applyTrackpadAcceleration(dx, dy, elapsedMs) {
+      const distance = Math.hypot(dx, dy);
+      if (distance === 0) return { dx, dy };
+
+      const speed = distance / Math.max(8, elapsedMs);
+      if (speed <= TRACKPAD_ACCELERATION_SPEED_THRESHOLD) return { dx, dy };
+
+      const boost = Math.pow(speed - TRACKPAD_ACCELERATION_SPEED_THRESHOLD, 1.15) * TRACKPAD_ACCELERATION_GAIN;
+      const factor = Math.min(TRACKPAD_ACCELERATION_MAX, 1 + boost);
+      return { dx: dx * factor, dy: dy * factor };
+    }
+
     async function syncMouseMove(dx, dy) {
       try {
         await sendRealtime(
@@ -871,6 +886,7 @@
         startY: event.clientY,
         lastX: event.clientX,
         lastY: event.clientY,
+        lastAt: event.timeStamp,
       });
       tapPointerCount = Math.max(tapPointerCount, activeTrackpadPointers.size);
       trackpad.setPointerCapture(event.pointerId);
@@ -890,9 +906,12 @@
       }
       const dx = event.clientX - pointer.lastX;
       const dy = event.clientY - pointer.lastY;
+      const elapsedMs = event.timeStamp - pointer.lastAt;
+      const adjusted = applyTrackpadAcceleration(dx, dy, elapsedMs);
       pointer.lastX = event.clientX;
       pointer.lastY = event.clientY;
-      if (activeTrackpadPointers.size === 1) queueMouseMove(dx, dy);
+      pointer.lastAt = event.timeStamp;
+      if (activeTrackpadPointers.size === 1) queueMouseMove(adjusted.dx, adjusted.dy);
     });
     trackpad.addEventListener("pointerup", (event) => {
       activeTrackpadPointers.delete(event.pointerId);
