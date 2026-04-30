@@ -398,6 +398,12 @@
       }
     }
 
+    function keepComposerFocus(event) {
+      if (currentMode !== "text") return;
+      event.preventDefault();
+      focusComposer();
+    }
+
     function primeMobileKeyboard() {
       focusComposer();
       setTimeout(focusComposer, 200);
@@ -793,6 +799,7 @@
         sending = false;
         sendButton.disabled = false;
         progressFill.style.width = "0%";
+        focusComposer();
       }
     }
 
@@ -868,6 +875,7 @@
         setStatus("自动发送已关闭。");
       }
     });
+    sendButton.addEventListener("pointerdown", keepComposerFocus);
     sendButton.addEventListener("click", sendOrEnter);
     keyUpButton.addEventListener("click", () => syncKey("up"));
     keyDownButton.addEventListener("click", () => syncKey("down"));
