@@ -49,6 +49,26 @@ http://192.168.x.x:3210
 $env:PORT='3219'; uv run python -m py_remote_input
 ```
 
+## 打包 exe
+
+项目根目录下提供了专用打包脚本，会自动调用 PyInstaller，并把网页模板资源一起打包进去：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_exe.py
+```
+
+打包完成后，最新 exe 输出到：
+
+```text
+dist\RemoteInputBoard.exe
+```
+
+如果想查看实际执行的 PyInstaller 命令，可以运行：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_exe.py --show-command
+```
+
 ## 日志
 
 运行目录下会生成：
