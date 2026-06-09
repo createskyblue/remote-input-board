@@ -70,6 +70,9 @@ VK_UP = 0x26
 VK_DOWN = 0x28
 VK_DELETE = 0x2E
 
+TYPE_BATCH_CHARS = 5
+TYPE_BATCH_DELAY = 0.008
+
 SUPPORTED_KEYS = {
     "backspace": VK_BACK,
     "delete": VK_DELETE,
@@ -211,7 +214,12 @@ def get_foreground_window_title() -> str:
 def type_text(text: str) -> dict:
     started_at = time.perf_counter()
     window_title = get_foreground_window_title()
-    _send_inputs(build_text_inputs(text))
+    inputs = build_text_inputs(text)
+    batch_size = TYPE_BATCH_CHARS * 2
+    for offset in range(0, len(inputs), batch_size):
+        _send_inputs(inputs[offset:offset + batch_size])
+        if offset + batch_size < len(inputs):
+            time.sleep(TYPE_BATCH_DELAY)
     return {
         "method": "sendinput-unicode",
         "windowTitle": window_title,
