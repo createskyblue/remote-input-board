@@ -137,7 +137,7 @@
       display: grid;
       gap: 10px;
     }
-    .trackpad { min-height: 220px;
+    .trackpad { aspect-ratio: 1;
       border: 1px solid rgba(15, 123, 95, 0.18);
       border-radius: 18px;
       background:
@@ -252,7 +252,7 @@
       .toolbar { grid-template-columns: 1fr; }
       .actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
       .headerTools { gap: 8px; }
-      .textSurface, .trackpad { min-height: 260px; }
+      .textSurface { min-height: 260px; }
       .composerHeader { align-items: flex-start; }
     }
   </style>
@@ -369,9 +369,7 @@
     const TRACKPAD_ACCELERATION_SPEED_THRESHOLD = 0.28;
     const TRACKPAD_ACCELERATION_MAX = 3.0;
     const TRACKPAD_ACCELERATION_GAIN = 1.85;
-    const TRACKPAD_VERTICAL_SCALE_MIN = 0.68;
-    const TRACKPAD_HORIZONTAL_SCROLL_SCALE = 4;
-    const TRACKPAD_VERTICAL_SCROLL_SCALE = 18;
+    const TRACKPAD_SCROLL_SCALE = 12;
     let lastClickDownAt = 0;
     let pendingSingleTapTimer = null;
     let tapStartedDrag = false;
@@ -708,16 +706,6 @@
       return { dx: dx * factor, dy: dy * factor };
     }
 
-    function getTrackpadVerticalScale() {
-      const width = trackpad.clientWidth || 1;
-      const height = trackpad.clientHeight || width;
-      return Math.min(1, Math.max(TRACKPAD_VERTICAL_SCALE_MIN, height / width));
-    }
-
-    function normalizeTrackpadDelta(dx, dy, verticalScale) {
-      return { dx, dy: dy * verticalScale };
-    }
-
     function getTwoFingerScrollAxis() {
       const pointers = Array.from(activeTrackpadPointers.values());
       if (pointers.length < 2) return null;
@@ -973,7 +961,6 @@
         lastX: event.clientX,
         lastY: event.clientY,
         lastAt: event.timeStamp,
-        verticalScale: getTrackpadVerticalScale(),
       });
       tapPointerCount = Math.max(tapPointerCount, activeTrackpadPointers.size);
       trackpad.setPointerCapture(event.pointerId);
@@ -994,15 +981,14 @@
       const dx = event.clientX - pointer.lastX;
       const dy = event.clientY - pointer.lastY;
       const elapsedMs = event.timeStamp - pointer.lastAt;
-      const normalized = normalizeTrackpadDelta(dx, dy, pointer.verticalScale);
-      const adjusted = applyTrackpadAcceleration(normalized.dx, normalized.dy, elapsedMs);
+      const adjusted = applyTrackpadAcceleration(dx, dy, elapsedMs);
       pointer.lastX = event.clientX;
       pointer.lastY = event.clientY;
       pointer.lastAt = event.timeStamp;
       if (activeTrackpadPointers.size >= 2) {
         const scrollAxis = getTwoFingerScrollAxis();
-        const scrollDx = scrollAxis === "horizontal" ? dx * TRACKPAD_HORIZONTAL_SCROLL_SCALE : 0;
-        const scrollDy = scrollAxis === "vertical" ? -dy * TRACKPAD_VERTICAL_SCROLL_SCALE : 0;
+        const scrollDx = scrollAxis === "horizontal" ? -dx * TRACKPAD_SCROLL_SCALE : 0;
+        const scrollDy = scrollAxis === "vertical" ? dy * TRACKPAD_SCROLL_SCALE : 0;
         queueMouseScroll(scrollDx, scrollDy);
       } else if (activeTrackpadPointers.size === 1 && tapPointerCount === 1) {
         queueMouseMove(adjusted.dx, adjusted.dy);
