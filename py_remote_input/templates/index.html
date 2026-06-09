@@ -365,10 +365,7 @@
     const TAP_MAX_MS = 220;
     const TAP_MAX_MOVE = 8;
     const DOUBLE_TAP_MAX_MS = 180;
-    const TRACKPAD_BASE_SPEED = 1.35;
-    const TRACKPAD_ACCELERATION_SPEED_THRESHOLD = 0.28;
-    const TRACKPAD_ACCELERATION_MAX = 3.0;
-    const TRACKPAD_ACCELERATION_GAIN = 1.85;
+    const TRACKPAD_SPEED = 1.5;
     const TRACKPAD_SCROLL_SCALE = 12;
     let lastClickDownAt = 0;
     let pendingSingleTapTimer = null;
@@ -694,16 +691,8 @@
       if (scrollFrame === null) scrollFrame = window.requestAnimationFrame(flushMouseScroll);
     }
 
-    function applyTrackpadAcceleration(dx, dy, elapsedMs) {
-      const distance = Math.hypot(dx, dy);
-      if (distance === 0) return { dx, dy };
-
-      const speed = distance / Math.max(8, elapsedMs);
-      const boost = speed <= TRACKPAD_ACCELERATION_SPEED_THRESHOLD
-        ? 0
-        : Math.pow(speed - TRACKPAD_ACCELERATION_SPEED_THRESHOLD, 1.15) * TRACKPAD_ACCELERATION_GAIN;
-      const factor = Math.min(TRACKPAD_ACCELERATION_MAX, TRACKPAD_BASE_SPEED + boost);
-      return { dx: dx * factor, dy: dy * factor };
+    function scaleTrackpadDelta(dx, dy) {
+      return { dx: dx * TRACKPAD_SPEED, dy: dy * TRACKPAD_SPEED };
     }
 
     function getTwoFingerScrollAxis() {
@@ -980,8 +969,7 @@
       }
       const dx = event.clientX - pointer.lastX;
       const dy = event.clientY - pointer.lastY;
-      const elapsedMs = event.timeStamp - pointer.lastAt;
-      const adjusted = applyTrackpadAcceleration(dx, dy, elapsedMs);
+      const adjusted = scaleTrackpadDelta(dx, dy);
       pointer.lastX = event.clientX;
       pointer.lastY = event.clientY;
       pointer.lastAt = event.timeStamp;
