@@ -90,10 +90,8 @@ class WebTests(unittest.TestCase):
         self.assertIn("syncMouseMove", html)
         self.assertIn("syncMouseScroll", html)
         self.assertIn("syncMouseButton", html)
-        self.assertIn("TRACKPAD_HORIZONTAL_SCROLL_SCALE", html)
-        self.assertIn("TRACKPAD_VERTICAL_SCROLL_SCALE", html)
-        self.assertIn("const TRACKPAD_HORIZONTAL_SCROLL_SCALE = 4;", html)
-        self.assertIn("const TRACKPAD_VERTICAL_SCROLL_SCALE = 18;", html)
+        self.assertIn("TRACKPAD_SCROLL_SCALE", html)
+        self.assertIn("const TRACKPAD_SCROLL_SCALE = 6;", html)
         self.assertIn("TRACKPAD_BASE_SPEED", html)
         self.assertIn("TRACKPAD_ACCELERATION_SPEED_THRESHOLD", html)
         self.assertIn("TRACKPAD_ACCELERATION_MAX", html)
@@ -114,8 +112,8 @@ class WebTests(unittest.TestCase):
         self.assertIn("queueMouseMove(adjusted.dx, adjusted.dy)", html)
         self.assertIn("getTwoFingerScrollAxis", html)
         self.assertIn("const scrollAxis = getTwoFingerScrollAxis();", html)
-        self.assertIn('const scrollDx = scrollAxis === "horizontal" ? dx * TRACKPAD_HORIZONTAL_SCROLL_SCALE : 0;', html)
-        self.assertIn('const scrollDy = scrollAxis === "vertical" ? -dy * TRACKPAD_VERTICAL_SCROLL_SCALE : 0;', html)
+        self.assertIn('const scrollDx = scrollAxis === "horizontal" ? -dx * TRACKPAD_SCROLL_SCALE : 0;', html)
+        self.assertIn('const scrollDy = scrollAxis === "vertical" ? dy * TRACKPAD_SCROLL_SCALE : 0;', html)
         self.assertIn("queueMouseScroll(scrollDx, scrollDy)", html)
         self.assertNotIn("getTrackpadCentroid", html)
         self.assertIn('sendRealtime(\n          { type: "mouseScroll", dx, dy }', html)
@@ -177,6 +175,22 @@ class WebTests(unittest.TestCase):
         self.assertIn("要覆盖当前输入内容吗", html)
         self.assertNotIn('addHistoryItem({ kind: "key", key })', html)
         self.assertNotIn("已同步", html)
+
+    def test_trackpad_two_finger_scroll_uses_same_slower_scale_for_both_axes(self):
+        template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
+
+        self.assertIn("const TRACKPAD_SCROLL_SCALE = 6;", template)
+        self.assertIn('const scrollDx = scrollAxis === "horizontal" ? -dx * TRACKPAD_SCROLL_SCALE : 0;', template)
+        self.assertIn('const scrollDy = scrollAxis === "vertical" ? dy * TRACKPAD_SCROLL_SCALE : 0;', template)
+        self.assertNotIn("TRACKPAD_HORIZONTAL_SCROLL_SCALE", template)
+        self.assertNotIn("TRACKPAD_VERTICAL_SCROLL_SCALE", template)
+
+    def test_trackpad_mouse_move_keeps_subpixel_remainder_between_frames(self):
+        template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
+
+        self.assertIn("pendingMouseDx -= dx;", template)
+        self.assertIn("pendingMouseDy -= dy;", template)
+        self.assertNotIn("pendingMouseDx = 0;\n      pendingMouseDy = 0;\n      if (dx === 0 && dy === 0) return;", template)
 
     def test_submits_text_to_typer(self):
         calls = []

@@ -366,7 +366,7 @@
     const TAP_MAX_MOVE = 8;
     const DOUBLE_TAP_MAX_MS = 180;
     const TRACKPAD_SPEED = 1.5;
-    const TRACKPAD_SCROLL_SCALE = 12;
+    const TRACKPAD_SCROLL_SCALE = 6;
     let lastClickDownAt = 0;
     let pendingSingleTapTimer = null;
     let tapStartedDrag = false;
@@ -476,6 +476,7 @@
       stopCountdown();
       text.value = item.text;
       setStatus("已填充历史记录，可编辑后发送。");
+      document.querySelector(".composer").scrollIntoView({ behavior: "smooth", block: "start" });
       focusComposer();
     }
 
@@ -663,8 +664,8 @@
       mouseFrame = null;
       const dx = Math.round(pendingMouseDx);
       const dy = Math.round(pendingMouseDy);
-      pendingMouseDx = 0;
-      pendingMouseDy = 0;
+      pendingMouseDx -= dx;
+      pendingMouseDy -= dy;
       if (dx === 0 && dy === 0) return;
       syncMouseMove(dx, dy);
     }
