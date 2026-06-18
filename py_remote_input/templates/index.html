@@ -368,6 +368,8 @@
     let pendingSingleTapTimer = null;
     let tapStartedDrag = false;
     let dragLocked = false;
+    let doubleTapPending = false;
+    let doubleTapIntervalMs = null;
     let pendingMouseDx = 0;
     let pendingMouseDy = 0;
     let pendingScrollDx = 0;
@@ -856,6 +858,8 @@
       tapPointerCount = 0;
       tapMoved = false;
       tapStartedDrag = false;
+      doubleTapPending = false;
+      doubleTapIntervalMs = null;
     }
 
     function cancelPendingSingleTapClick() {
@@ -926,9 +930,16 @@
         tapPointerCount = 0;
         tapMoved = false;
         tapStartedDrag = false;
+        doubleTapPending = false;
+        doubleTapIntervalMs = null;
         const tapIntervalMs = lastClickDownAt > 0 ? startedAt - lastClickDownAt : null;
         if (!dragLocked && tapIntervalMs !== null && tapIntervalMs < DOUBLE_TAP_MAX_MS) {
-          startDragFromDoubleTap(tapIntervalMs);
+          // Fast double-tap: defer decision — drag if moved, double-click if released in place
+          cancelPendingSingleTapClick();
+          lastClickDownAt = 0;
+          doubleTapPending = true;
+          doubleTapIntervalMs = tapIntervalMs;
+          updateTapDebug(tapIntervalMs, "等待...");
         } else {
           if (tapIntervalMs !== null) flushPendingSingleTapClick();
           updateTapDebug(tapIntervalMs, tapIntervalMs === null ? "" : "未触发");
@@ -952,6 +963,13 @@
       const totalDy = event.clientY - pointer.startY;
       if (Math.hypot(totalDx, totalDy) > TAP_MAX_MOVE) {
         tapMoved = true;
+        if (doubleTapPending) {
+          // Double-tap + move = drag
+          doubleTapPending = false;
+          tapStartedDrag = true;
+          updateTapDebug(doubleTapIntervalMs, "已触发拖拽");
+          setDragLocked(true);
+        }
         if (!dragLocked) {
           resetClickChain();
           updateTapDebug(null, "已重置");
@@ -980,6 +998,22 @@
           resetTrackpadTap();
           return;
         }
+        if (doubleTapPending) {
+          // Double-tap released without moving = double-click
+          doubleTapPending = false;
+          resetClickChain();
+          const count = tapPointerCount;
+          resetTrackpadTap();
+          if (count >= 2) {
+            updateTapDebug(doubleTapIntervalMs, "双指双击→右键");
+            syncMouseClick("right");
+          } else {
+            updateTapDebug(doubleTapIntervalMs, "双击");
+            syncMouseClick("left");
+            setTimeout(() => syncMouseClick("left"), 50);
+          }
+          return;
+        }
         finishTrackpadTap();
       }
     });
@@ -989,6 +1023,13 @@
         if (dragLocked) {
           setDragLocked(false);
           resetTrackpadTap();
+          return;
+        }
+        if (doubleTapPending) {
+          doubleTapPending = false;
+          resetClickChain();
+          resetTrackpadTap();
+          updateTapDebug(null, "已取消");
           return;
         }
         finishTrackpadTap(true);
