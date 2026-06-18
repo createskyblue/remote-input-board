@@ -1,6 +1,6 @@
-﻿# Remote Input Board
+# Remote Input Board
 
-Remote Input Board 是一个给 Windows 电脑用的”手机远程输入面板”。它的出发点很简单：手机上的豆包输入法语音识别很好用，但 PC 端没有那么顺手，所以这个工具让手机负责输入，电脑负责接收。
+Remote Input Board 是一个给 Windows 电脑用的"手机远程输入面板"。它的出发点很简单：手机上的豆包输入法语音识别很好用，但 PC 端没有那么顺手，所以这个工具让手机负责输入，电脑负责接收。
 
 电脑启动服务后，手机浏览器打开同一局域网里的网页，就可以把手机输入框里的内容发送到电脑当前光标位置。它适合 AI Coding、聊天、写文档这类需要频繁输入长文本的场景：手机负责语音输入和快捷控制，电脑继续停留在编辑器或目标窗口里。
 
@@ -13,9 +13,9 @@ Remote Input Board 是一个给 Windows 电脑用的”手机远程输入面板�
     <td><strong>历史记录</strong></td>
   </tr>
   <tr>
-    <td><img src=”img/正在使用豆包输入法进行输入在主界面.jpg” alt=”主界面” width=”240”></td>
-    <td><img src=”img/触摸板.jpg” alt=”触控板” width=”240”></td>
-    <td><img src=”img/历史界面.jpg” alt=”历史记录” width=”240”></td>
+    <td><img src="img/正在使用豆包输入法进行输入在主界面.jpg" alt="主界面" width="240"></td>
+    <td><img src="img/触摸板.jpg" alt="触控板" width="240"></td>
+    <td><img src="img/历史界面.jpg" alt="历史记录" width="240"></td>
   </tr>
 </table>
 
