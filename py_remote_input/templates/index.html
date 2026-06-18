@@ -67,7 +67,7 @@
       height: 100%;
       min-height: 0;
       max-height: none;
-      border: 1px solid var(--line);
+      border: 1px solid var(--accent);
       border-radius: 14px;
       padding: 16px;
       color: var(--ink);
@@ -77,8 +77,11 @@
       line-height: 1.65;
       resize: none;
       outline: none;
+      overflow-x: hidden;
+      overflow-wrap: break-word;
+      box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
     }
-    textarea:focus, .autoSendSentence input[type="number"]:focus {
+    .autoSendSentence input[type="number"]:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
     }
@@ -116,6 +119,10 @@
       font: inherit;
       font-weight: 700;
       outline: none;
+    }
+    .autoSendSentence input[type="number"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
     }
     .actions { display: flex; gap: 10px; }
     .keyActions {
@@ -225,14 +232,6 @@
     }
     button.mouseButton { color: var(--accent-2); background: rgba(29, 79, 145, 0.12); }
     button:disabled { opacity: 0.62; cursor: wait; }
-    .progressTrack { height: 8px; overflow: hidden; border-radius: 999px; background: #dce6e2; }
-    .progressFill {
-      width: 0%;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      transition: width 80ms linear;
-    }
     .historyPanel { padding: 14px; background: rgba(255, 255, 255, 0.92); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
     .historyHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
     .historyHeader h2 { margin: 0; font-size: 16px; }
@@ -243,6 +242,7 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
       outline: none;
+    }      box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
     }
     .historyMeta { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .statusbar { padding: 12px 14px; color: var(--muted); font-size: 14px; min-height: 48px; }
@@ -271,7 +271,6 @@
       <div id="textPanel" class="modePanel">
         <div class="textSurface">
           <textarea id="text" autofocus placeholder="在这里用豆包输入法语音输入"></textarea>
-          <div class="progressTrack" aria-hidden="true"><div id="progressFill" class="progressFill"></div></div>
           <div id="autoSendSentence" class="autoSendSentence">
             <input id="autoSend" type="checkbox" checked aria-label="启用自动发送">
             <span id="autoSendPrefix">在</span>
@@ -347,13 +346,11 @@
     const mouseKeyUpButton = document.getElementById("mouseKeyUp");
     const mouseKeyDownButton = document.getElementById("mouseKeyDown");
     const statusNode = document.getElementById("status");
-    const progressFill = document.getElementById("progressFill");
     const historyList = document.getElementById("historyList");
     const clearHistory = document.getElementById("clearHistory");
     const totalChars = document.getElementById("totalChars");
 
     let pendingTimer = null;
-    let progressTimer = null;
     let countdownStartedAt = 0;
     let sending = false;
     let syncingKey = false;
@@ -529,10 +526,7 @@
 
     function stopCountdown() {
       clearTimeout(pendingTimer);
-      clearInterval(progressTimer);
       pendingTimer = null;
-      progressTimer = null;
-      progressFill.style.width = "0%";
     }
 
     function normalizeDelaySeconds(value) {
@@ -581,10 +575,6 @@
       const autoSendDelay = getAutoSendDelay();
       countdownStartedAt = Date.now();
       setStatus("停止输入后 " + (autoSendDelay / 1000).toString() + " 秒自动发送。");
-      progressTimer = setInterval(() => {
-        const elapsed = Date.now() - countdownStartedAt;
-        progressFill.style.width = Math.min(100, (elapsed / autoSendDelay) * 100) + "%";
-      }, 50);
       pendingTimer = setTimeout(() => sendText({ source: "auto" }), autoSendDelay);
     }
 
@@ -776,7 +766,6 @@
       } finally {
         sending = false;
         sendButton.disabled = false;
-        progressFill.style.width = "0%";
         focusComposer();
       }
     }
