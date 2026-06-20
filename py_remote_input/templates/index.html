@@ -378,6 +378,7 @@
     let scrollFrame = null;
     let realtimeSocket = null;
     let realtimeReconnectTimer = null;
+    const canUseBeforeInput = "onbeforeinput" in text;
 
     function focusComposer() {
       if (currentMode !== "text") return;
@@ -821,8 +822,8 @@
       }
     });
     text.addEventListener("keydown", (event) => {
-      if (event.key === "Backspace" && text.value === "") syncBackspace();
-      if (event.key === "Enter") {
+      if (event.key === "Backspace" && !canUseBeforeInput && text.value === "") syncBackspace();
+      if (event.key === "Enter" && !canUseBeforeInput) {
         text.value.trim() ? sendOnEnter(event) : syncEnter(event);
       }
     });

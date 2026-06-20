@@ -192,6 +192,14 @@ class WebTests(unittest.TestCase):
         self.assertIn("pendingMouseDy -= dy;", template)
         self.assertNotIn("pendingMouseDx = 0;\n      pendingMouseDy = 0;\n      if (dx === 0 && dy === 0) return;", template)
 
+    def test_empty_backspace_does_not_sync_from_both_beforeinput_and_keydown(self):
+        template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
+
+        self.assertIn('const canUseBeforeInput = "onbeforeinput" in text;', template)
+        self.assertIn('event.inputType === "deleteContentBackward"', template)
+        self.assertIn('event.key === "Backspace" && !canUseBeforeInput', template)
+        self.assertNotIn('event.key === "Backspace" && text.value === "") syncBackspace();', template)
+
     def test_submits_text_to_typer(self):
         calls = []
 
