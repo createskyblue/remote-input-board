@@ -200,6 +200,19 @@ class WebTests(unittest.TestCase):
         self.assertIn('event.key === "Backspace" && !canUseBeforeInput', template)
         self.assertNotIn('event.key === "Backspace" && text.value === "") syncBackspace();', template)
 
+    def test_empty_composer_uses_invisible_sentinel_for_repeated_mobile_backspace(self):
+        template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
+
+        self.assertIn('const BACKSPACE_SENTINEL = "\\u200B";', template)
+        self.assertIn("function getComposerText()", template)
+        self.assertIn("function ensureBackspaceSentinel()", template)
+        self.assertIn("function restoreBackspaceSentinelAfterDelete(event)", template)
+        self.assertIn("composerTextBeforeInput === \"\"", template)
+        self.assertIn("!text.value.includes(BACKSPACE_SENTINEL)", template)
+        self.assertIn("syncBackspace();\n      }\n      ensureBackspaceSentinel();", template)
+        self.assertIn("const payloadText = getComposerText();", template)
+        self.assertIn("text.value = BACKSPACE_SENTINEL;", template)
+
     def test_submits_text_to_typer(self):
         calls = []
 

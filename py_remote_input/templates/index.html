@@ -327,6 +327,7 @@
     const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
     const REALTIME_PATH = "/ws";
     const HISTORY_LIMIT = 30;
+    const BACKSPACE_SENTINEL = "\u200B";
     const text = document.getElementById("text");
     const textPanel = document.getElementById("textPanel");
     const touchpadPanel = document.getElementById("touchpadPanel");
@@ -379,6 +380,40 @@
     let realtimeSocket = null;
     let realtimeReconnectTimer = null;
     const canUseBeforeInput = "onbeforeinput" in text;
+    let composerTextBeforeInput = "";
+
+    function getComposerText() {
+      return text.value.split(BACKSPACE_SENTINEL).join("");
+    }
+
+    function placeCaretAtComposerEnd() {
+      try {
+        text.setSelectionRange(text.value.length, text.value.length);
+      } catch {
+      }
+    }
+
+    function ensureBackspaceSentinel() {
+      if (getComposerText() !== "") return;
+      if (text.value !== BACKSPACE_SENTINEL) text.value = BACKSPACE_SENTINEL;
+      placeCaretAtComposerEnd();
+    }
+
+    function setComposerText(value) {
+      text.value = value || BACKSPACE_SENTINEL;
+      placeCaretAtComposerEnd();
+    }
+
+    function restoreBackspaceSentinelAfterDelete(event) {
+      if (
+        event.inputType === "deleteContentBackward" &&
+        composerTextBeforeInput === "" &&
+        !text.value.includes(BACKSPACE_SENTINEL)
+      ) {
+        syncBackspace();
+      }
+      ensureBackspaceSentinel();
+    }
 
     function focusComposer() {
       if (currentMode !== "text") return;
@@ -391,6 +426,7 @@
         text.setSelectionRange(text.value.length, text.value.length);
       } catch {
       }
+      ensureBackspaceSentinel();
     }
 
     function keepComposerFocus(event) {
@@ -468,13 +504,13 @@
 
     function applyHistoryItem(item) {
       if (item.kind !== "text" || typeof item.text !== "string") return;
-      if (text.value.trim() && !confirmHistoryOverwrite()) {
+      if (getComposerText().trim() && !confirmHistoryOverwrite()) {
         focusComposer();
         return;
       }
 
       stopCountdown();
-      text.value = item.text;
+      setComposerText(item.text);
       setStatus("已填充历史记录，可编辑后发送。");
       document.querySelector(".composer").scrollIntoView({ behavior: "smooth", block: "start" });
       focusComposer();
@@ -573,7 +609,7 @@
 
     function startCountdown() {
       stopCountdown();
-      if (!autoSend.checked || sending || !text.value.trim()) return;
+      if (!autoSend.checked || sending || !getComposerText().trim()) return;
 
       const autoSendDelay = getAutoSendDelay();
       countdownStartedAt = Date.now();
@@ -750,7 +786,7 @@
     }
 
     async function sendText(options = {}) {
-      const payloadText = text.value;
+      const payloadText = getComposerText();
       if (!payloadText.trim() || sending) return;
 
       stopCountdown();
@@ -762,7 +798,7 @@
         const result = await postJson("/api/type", { text: payloadText });
         addHistoryItem({ kind: "text", text: payloadText });
         addTypedChars(payloadText);
-        text.value = "";
+        text.value = BACKSPACE_SENTINEL;
         setStatus("已发送，耗时 " + (result.durationMs || 0) + " ms。");
       } catch (error) {
         setStatus(error.message || "发送失败", true);
@@ -802,7 +838,7 @@
     }
 
     function sendOrEnter() {
-      if (text.value.trim()) {
+      if (getComposerText().trim()) {
         sendText({ source: "manual" });
       } else {
         syncKey("enter");
@@ -810,24 +846,27 @@
     }
 
     function sendOnEnter(event) {
-      if (!text.value.trim() || sending) return;
+      if (!getComposerText().trim() || sending) return;
       event.preventDefault();
       sendText({ source: "enter" });
     }
 
     text.addEventListener("beforeinput", (event) => {
-      if (event.inputType === "deleteContentBackward" && text.value === "") syncBackspace();
+      composerTextBeforeInput = getComposerText();
       if (event.inputType === "insertLineBreak") {
-        text.value.trim() ? sendOnEnter(event) : syncEnter(event);
+        getComposerText().trim() ? sendOnEnter(event) : syncEnter(event);
       }
     });
     text.addEventListener("keydown", (event) => {
-      if (event.key === "Backspace" && !canUseBeforeInput && text.value === "") syncBackspace();
+      if (event.key === "Backspace" && !canUseBeforeInput && getComposerText() === "") syncBackspace();
       if (event.key === "Enter" && !canUseBeforeInput) {
-        text.value.trim() ? sendOnEnter(event) : syncEnter(event);
+        getComposerText().trim() ? sendOnEnter(event) : syncEnter(event);
       }
     });
-    text.addEventListener("input", startCountdown);
+    text.addEventListener("input", (event) => {
+      restoreBackspaceSentinelAfterDelete(event);
+      startCountdown();
+    });
     delaySeconds.addEventListener("input", () => {
       saveDelayDraft();
       startCountdown();
@@ -1043,7 +1082,7 @@
     });
     clearButton.addEventListener("click", () => {
       stopCountdown();
-      text.value = "";
+      text.value = BACKSPACE_SENTINEL;
       setStatus("已清空。");
       focusComposer();
     });
@@ -1054,6 +1093,7 @@
     loadTotalChars();
     renderHistory();
     connectRealtime();
+    ensureBackspaceSentinel();
     primeMobileKeyboard();
     window.addEventListener("pageshow", primeMobileKeyboard);
     document.addEventListener("visibilitychange", () => {
