@@ -65,6 +65,7 @@ MOUSEEVENTF_RIGHTUP = 0x0010
 MOUSEEVENTF_WHEEL = 0x0800
 MOUSEEVENTF_HWHEEL = 0x01000
 VK_BACK = 0x08
+VK_ESCAPE = 0x1B
 VK_RETURN = 0x0D
 VK_UP = 0x26
 VK_DOWN = 0x28
@@ -78,6 +79,7 @@ SUPPORTED_KEYS = {
     "delete": VK_DELETE,
     "down": VK_DOWN,
     "enter": VK_RETURN,
+    "escape": VK_ESCAPE,
     "up": VK_UP,
 }
 

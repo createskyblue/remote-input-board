@@ -50,8 +50,8 @@ class WebTests(unittest.TestCase):
         self.assertIn("commitDelay", html)
         self.assertIn("textSurface", html)
         self.assertIn(".textSurface { min-height: 220px;", html)
-        self.assertIn(".trackpad { min-height: 220px;", html)
-        self.assertIn(".textSurface, .trackpad { min-height: 260px; }", html)
+        self.assertIn(".trackpad { aspect-ratio: 1;", html)
+        self.assertIn(".textSurface { min-height: 260px; }", html)
         self.assertIn(".actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }", html)
         self.assertIn(".modePanel { display: grid; gap: 8px; }", html)
         self.assertIn("TOTAL_CHARS_STORAGE_KEY", html)
@@ -66,10 +66,12 @@ class WebTests(unittest.TestCase):
         self.assertIn("sendOnEnter", html)
         self.assertIn('aria-label="发送或回车"', html)
         self.assertIn('class="enterIcon"', html)
-        self.assertIn('id="keyUp"', html)
-        self.assertIn('id="keyDown"', html)
+        self.assertNotIn('id="keyUp"', html)
+        self.assertNotIn('id="keyDown"', html)
+        self.assertIn('id="keyEscape"', html)
         self.assertIn('syncKey("up")', html)
         self.assertIn('syncKey("down")', html)
+        self.assertIn('syncKey("escape")', html)
         self.assertIn("modeToggle", html)
         self.assertIn("touchpadPanel", html)
         self.assertIn("trackpad", html)
@@ -92,23 +94,10 @@ class WebTests(unittest.TestCase):
         self.assertIn("syncMouseButton", html)
         self.assertIn("TRACKPAD_SCROLL_SCALE", html)
         self.assertIn("const TRACKPAD_SCROLL_SCALE = 6;", html)
-        self.assertIn("TRACKPAD_BASE_SPEED", html)
-        self.assertIn("TRACKPAD_ACCELERATION_SPEED_THRESHOLD", html)
-        self.assertIn("TRACKPAD_ACCELERATION_MAX", html)
-        self.assertIn("const TRACKPAD_BASE_SPEED = 1.35;", html)
-        self.assertIn("const TRACKPAD_ACCELERATION_SPEED_THRESHOLD = 0.28;", html)
-        self.assertIn("const TRACKPAD_ACCELERATION_MAX = 3.0;", html)
-        self.assertIn("const TRACKPAD_ACCELERATION_GAIN = 1.85;", html)
-        self.assertIn("const boost = speed <= TRACKPAD_ACCELERATION_SPEED_THRESHOLD", html)
-        self.assertIn("TRACKPAD_BASE_SPEED + boost", html)
-        self.assertIn("TRACKPAD_VERTICAL_SCALE_MIN", html)
-        self.assertIn("const TRACKPAD_VERTICAL_SCALE_MIN = 0.68;", html)
-        self.assertIn("getTrackpadVerticalScale", html)
-        self.assertIn("normalizeTrackpadDelta", html)
-        self.assertIn("applyTrackpadAcceleration", html)
-        self.assertIn("verticalScale: getTrackpadVerticalScale()", html)
-        self.assertIn("const normalized = normalizeTrackpadDelta(dx, dy, pointer.verticalScale);", html)
-        self.assertIn("const adjusted = applyTrackpadAcceleration(normalized.dx, normalized.dy, elapsedMs);", html)
+        self.assertIn("TRACKPAD_SPEED", html)
+        self.assertIn("const TRACKPAD_SPEED = 1.5;", html)
+        self.assertIn("scaleTrackpadDelta", html)
+        self.assertIn("const adjusted = scaleTrackpadDelta(dx, dy);", html)
         self.assertIn("queueMouseMove(adjusted.dx, adjusted.dy)", html)
         self.assertIn("getTwoFingerScrollAxis", html)
         self.assertIn("const scrollAxis = getTwoFingerScrollAxis();", html)
@@ -169,7 +158,8 @@ class WebTests(unittest.TestCase):
         self.assertIn('sendButton.addEventListener("pointerdown", keepComposerFocus)', html)
         self.assertIn("function keepComposerFocus(event)", html)
         self.assertIn("event.preventDefault();", html)
-        self.assertIn("progressFill.style.width = \"0%\";\n        focusComposer();", html)
+        self.assertIn('setStatus("停止输入后 " + (autoSendDelay / 1000).toString() + " 秒自动发送。");', html)
+        self.assertIn("sendButton.disabled = false;\n        focusComposer();", html)
         self.assertIn("applyHistoryItem", html)
         self.assertIn("confirmHistoryOverwrite", html)
         self.assertIn("要覆盖当前输入内容吗", html)
@@ -212,6 +202,23 @@ class WebTests(unittest.TestCase):
         self.assertIn("syncBackspace();\n      }\n      ensureBackspaceSentinel();", template)
         self.assertIn("const payloadText = getComposerText();", template)
         self.assertIn("text.value = BACKSPACE_SENTINEL;", template)
+
+    def test_text_mode_actions_prioritize_escape_clear_and_send(self):
+        template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
+
+        text_panel = template.split('<div id="touchpadPanel"', 1)[0]
+        self.assertIn('class="actions textActions"', text_panel)
+        self.assertIn('id="keyEscape"', text_panel)
+        self.assertIn('class="sendButton primaryAction"', text_panel)
+        self.assertIn('grid-template-areas: "escape send" "clear send";', template)
+        self.assertIn(".primaryAction { grid-area: send;", template)
+        self.assertIn(".escapeAction { grid-area: escape;", template)
+        self.assertIn(".clearAction { grid-area: clear;", template)
+        self.assertIn('keyEscapeButton.addEventListener("click", () => syncKey("escape"))', template)
+        self.assertNotIn('id="keyUp"', text_panel)
+        self.assertNotIn('id="keyDown"', text_panel)
+        self.assertIn('id="mouseKeyUp"', template)
+        self.assertIn('id="mouseKeyDown"', template)
 
     def test_submits_text_to_typer(self):
         calls = []
@@ -306,6 +313,25 @@ class WebTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(calls, ["up"])
+
+    def test_submits_escape_key_to_key_presser(self):
+        calls = []
+
+        def press_key(key):
+            calls.append(key)
+            return {"method": "sendinput-key", "durationMs": 5, "windowTitle": "Notepad"}
+
+        response = handle_request(
+            "POST",
+            "/api/key",
+            json.dumps({"key": "escape"}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+            press_key=press_key,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, ["escape"])
 
     def test_submits_mouse_move_to_mouse_mover(self):
         calls = []
@@ -431,13 +457,13 @@ class WebTests(unittest.TestCase):
         calls = []
 
         result = handle_realtime_message(
-            {"type": "key", "key": "down"},
+            {"type": "key", "key": "escape"},
             FakeLogger(),
             press_key=lambda key: calls.append(key) or {"method": "sendinput-key"},
         )
 
         self.assertEqual(result["ok"], True)
-        self.assertEqual(calls, ["down"])
+        self.assertEqual(calls, ["escape"])
 
     def test_rejects_empty_text(self):
         response = handle_request(
@@ -455,7 +481,7 @@ class WebTests(unittest.TestCase):
         response = handle_request(
             "POST",
             "/api/key",
-            json.dumps({"key": "escape"}).encode("utf-8"),
+            json.dumps({"key": "pageup"}).encode("utf-8"),
             lambda _text: {},
             FakeLogger(),
             press_key=lambda _key: {},

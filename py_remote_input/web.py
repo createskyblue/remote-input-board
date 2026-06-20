@@ -57,7 +57,7 @@ def handle_realtime_message(
     try:
         if message_type == "key":
             key = payload.get("key", "")
-            if key not in {"backspace", "delete", "down", "enter", "up"}:
+            if key not in {"backspace", "delete", "down", "enter", "escape", "up"}:
                 return {"ok": False, "error": f"Unsupported key: {key}"}
             if press_key is None:
                 return {"ok": False, "error": "Key input is not configured."}
@@ -163,7 +163,7 @@ def handle_request(
             return json_response(400, {"error": "Invalid JSON body."})
 
         key = payload.get("key", "")
-        if key not in {"backspace", "delete", "down", "enter", "up"}:
+        if key not in {"backspace", "delete", "down", "enter", "escape", "up"}:
             return json_response(400, {"error": f"Unsupported key: {key}"})
         if press_key is None:
             return json_response(500, {"error": "Key input is not configured."})
