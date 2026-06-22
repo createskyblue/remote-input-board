@@ -127,6 +127,7 @@ def handle_request(
     logger,
     press_key=None,
     record_history=None,
+    text_stats=None,
     move_mouse=None,
     scroll_mouse=None,
     click_mouse=None,
@@ -135,6 +136,10 @@ def handle_request(
     if method == "GET" and path == "/":
         logger.info("Served mobile page.")
         return Response(200, "text/html; charset=utf-8", HTML_PAGE.encode("utf-8"))
+
+    if method == "GET" and path == "/api/stats":
+        total_chars = text_stats.get_total_chars() if text_stats is not None else 0
+        return json_response(200, {"ok": True, "totalChars": total_chars})
 
     if method == "POST" and path == "/api/type":
         payload = _read_json_body(body, logger)
@@ -151,8 +156,12 @@ def handle_request(
             result = type_text(text)
             if record_history is not None:
                 record_history({"kind": "text", "text": text})
+            total_chars = text_stats.add_text(text) if text_stats is not None else None
             logger.info("Typing request completed.", result)
-            return json_response(200, {"ok": True, **result})
+            payload = {"ok": True, **result}
+            if total_chars is not None:
+                payload["totalChars"] = total_chars
+            return json_response(200, payload)
         except Exception as exc:  # noqa: BLE001
             logger.error("Typing request failed.", {"error": str(exc)})
             return json_response(500, {"error": str(exc)})

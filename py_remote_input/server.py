@@ -9,6 +9,7 @@ import socket
 from urllib.parse import urlparse
 
 from py_remote_input.logger import Logger
+from py_remote_input.stats import TextStatsStore, count_text_history_chars
 from py_remote_input.typer import click_mouse, mouse_button, move_mouse, press_key, scroll_mouse, type_text
 from py_remote_input.web import handle_realtime_message, handle_request
 from py_remote_input.websocket import build_websocket_accept, encode_websocket_frame, read_websocket_frame
@@ -32,8 +33,11 @@ def get_local_urls(port: int) -> list[str]:
     return urls
 
 
-def build_history_recorder(history_file_path: Path):
+def build_history_recorder(history_file_path: Path, stats_file_path: Path | None = None):
     history_file_path.parent.mkdir(parents=True, exist_ok=True)
+    if stats_file_path is None:
+        stats_file_path = history_file_path.with_name("stats.json")
+    text_stats = TextStatsStore(stats_file_path, initial_total_chars=count_text_history_chars(history_file_path))
 
     def record_history(item: dict) -> None:
         payload = {
@@ -43,7 +47,7 @@ def build_history_recorder(history_file_path: Path):
         with history_file_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
-    return record_history
+    return record_history, text_stats
 
 
 def _write_websocket_frame(writer, opcode: int, payload: bytes = b"") -> None:
@@ -102,7 +106,7 @@ def serve_websocket_messages(
             return
 
 
-def build_handler(logger: Logger, record_history):
+def build_handler(logger: Logger, record_history, text_stats):
     class RequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
@@ -154,6 +158,7 @@ def build_handler(logger: Logger, record_history):
                 logger=logger,
                 press_key=press_key,
                 record_history=record_history,
+                text_stats=text_stats,
                 move_mouse=move_mouse,
                 scroll_mouse=scroll_mouse,
                 click_mouse=click_mouse,
@@ -172,8 +177,8 @@ def serve() -> None:
     port = int(os.environ.get("PORT", "3210"))
     log_dir = Path.cwd() / "logs"
     logger = Logger(log_dir / "server.log")
-    record_history = build_history_recorder(log_dir / "input-history.log")
-    server = ThreadingHTTPServer(("0.0.0.0", port), build_handler(logger, record_history))
+    record_history, text_stats = build_history_recorder(log_dir / "input-history.log", log_dir / "stats.json")
+    server = ThreadingHTTPServer(("0.0.0.0", port), build_handler(logger, record_history, text_stats))
 
     logger.info(f"Remote input server is running on port {port}.")
     logger.info("Open one of these addresses on your phone:")

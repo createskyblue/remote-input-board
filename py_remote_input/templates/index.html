@@ -495,15 +495,22 @@
       totalChars.textContent = count.toLocaleString("zh-CN");
     }
 
-    function loadTotalChars() {
+    async function loadTotalChars() {
+      try {
+        const result = await fetchJson("/api/stats");
+        const count = normalizeTotalChars(result.totalChars);
+        window.localStorage.setItem(TOTAL_CHARS_STORAGE_KEY, count.toString());
+        updateTotalChars(count);
+        return;
+      } catch {
+      }
       updateTotalChars(normalizeTotalChars(window.localStorage.getItem(TOTAL_CHARS_STORAGE_KEY)));
     }
 
-    function addTypedChars(value) {
-      const current = normalizeTotalChars(window.localStorage.getItem(TOTAL_CHARS_STORAGE_KEY));
-      const next = current + Array.from(value).length;
-      window.localStorage.setItem(TOTAL_CHARS_STORAGE_KEY, next.toString());
-      updateTotalChars(next);
+    function setTotalChars(count) {
+      const normalized = normalizeTotalChars(count);
+      window.localStorage.setItem(TOTAL_CHARS_STORAGE_KEY, normalized.toString());
+      updateTotalChars(normalized);
     }
 
     function confirmHistoryOverwrite() {
@@ -686,6 +693,13 @@
       return fallback();
     }
 
+    async function fetchJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "请求失败");
+      return result;
+    }
+
     async function postJson(url, payload) {
       const response = await fetch(url, {
         method: "POST",
@@ -805,7 +819,7 @@
       try {
         const result = await postJson("/api/type", { text: payloadText });
         addHistoryItem({ kind: "text", text: payloadText });
-        addTypedChars(payloadText);
+        if (typeof result.totalChars === "number") setTotalChars(result.totalChars);
         text.value = BACKSPACE_SENTINEL;
         setStatus("已发送，耗时 " + (result.durationMs || 0) + " ms。");
       } catch (error) {
