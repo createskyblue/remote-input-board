@@ -81,25 +81,9 @@
       overflow-wrap: break-word;
       box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
     }
-    .autoSendSentence input[type="number"]:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
-    }
-    .toolbar {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
-      align-items: center;
-    }
+    /* 自动发送区域已隐藏，保留代码备用 */
     .autoSendSentence {
-      min-height: 48px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--muted);
-      font-size: 15px;
-      font-weight: 700;
-      white-space: nowrap;
+      display: none;
     }
     .autoSendSentence input[type="checkbox"] {
       width: 22px;
@@ -124,11 +108,35 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
     }
+    /* 回车行为切换 */
+    .enterBehaviorToggle {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    .enterBehaviorToggle .toggleLabel {
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .enterBehaviorToggle.newlineMode .toggleLabel {
+      color: var(--accent-2);
+    }
+    .autoSendSentence input[type="number"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(15, 123, 95, 0.12);
+    }
     .actions { display: flex; gap: 10px; }
     .textActions {
       display: grid;
       grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-      grid-template-areas: "escape send" "clear send";
+      grid-template-areas: "escape send" "snippets send";
       gap: 10px;
     }
     .keyActions {
@@ -224,16 +232,7 @@
     }
     .primaryAction { grid-area: send; min-height: 106px; font-size: 20px; }
     .escapeAction { grid-area: escape; }
-    .clearAction { grid-area: clear; }
-    .enterIcon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-left: 3px;
-      font-size: 24px;
-      line-height: 1;
-      transform: translateY(-1px);
-    }
+    .snippetsAction { grid-area: snippets; }
     button.secondary { color: var(--accent); background: rgba(15, 123, 95, 0.1); }
     button.keyButton {
       color: var(--accent-2);
@@ -255,17 +254,130 @@
     .historyMeta { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .statusbar { padding: 12px 14px; color: var(--muted); font-size: 14px; min-height: 48px; }
     .statusbar.error { color: var(--danger); }
+
+    /* ---- 快捷指令弹窗 ---- */
+    .snippetOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(22, 33, 29, 0.45);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .snippetOverlay[hidden] { display: none; }
+    .snippetPanel {
+      width: min(100%, 500px);
+      max-height: 80vh;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+    }
+    .snippetPanelHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .snippetPanelHeader h3 { margin: 0; font-size: 18px; }
+    .snippetClose {
+      width: 36px;
+      height: 36px;
+      min-height: 0;
+      padding: 0;
+      border-radius: 50%;
+      background: rgba(22, 33, 29, 0.08);
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 36px;
+      text-align: center;
+    }
+    .snippetList {
+      overflow: auto;
+      padding: 10px 18px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+    .snippetItem {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfdfc;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .snippetItem:active { border-color: var(--accent); background: rgba(15, 123, 95, 0.05); }
+    .snippetItemName { font-weight: 800; font-size: 15px; color: var(--ink); }
+    .snippetItemPreview {
+      font-size: 13px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    .snippetItemBtn {
+      min-height: 0;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 8px;
+      font-size: 16px;
+      line-height: 32px;
+      background: rgba(22, 33, 29, 0.06);
+      color: var(--muted);
+      text-align: center;
+    }
+    .snippetItemBtn.danger { background: rgba(183, 53, 53, 0.1); color: var(--danger); }
+    .snippetForm {
+      padding: 14px 18px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 8px;
+    }
+    .snippetForm input, .snippetForm textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 15px;
+      outline: none;
+      background: #fbfdfc;
+    }
+    .snippetForm input:focus, .snippetForm textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 123, 95, 0.1);
+    }
+    .snippetForm textarea { height: 80px; resize: vertical; }
+    .snippetFormActions { display: flex; gap: 8px; justify-content: flex-end; }
+    .snippetFormActions button { min-height: 40px; font-size: 14px; }
+    .snippetEmpty { text-align: center; color: var(--muted); padding: 24px; font-size: 15px; }
+
     @media (max-width: 520px) {
       body { padding: 10px; }
       .toolbar { grid-template-columns: 1fr; }
       .actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
       .textActions {
         grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-        grid-template-areas: "escape send" "clear send";
+        grid-template-areas: "escape send" "snippets send";
       }
       .headerTools { gap: 8px; }
       .textSurface { min-height: 260px; }
       .composerHeader { align-items: flex-start; }
+      .snippetOverlay { padding: 10px; align-items: end; }
+      .snippetPanel { max-height: 70vh; border-radius: 18px 18px 0 0; }
     }
   </style>
 </head>
@@ -283,17 +395,22 @@
       <div id="textPanel" class="modePanel">
         <div class="textSurface">
           <textarea id="text" autofocus placeholder="在这里用豆包输入法语音输入"></textarea>
+          <!-- 自动发送倒计时区域（已隐藏，保留代码备用） -->
           <div id="autoSendSentence" class="autoSendSentence">
             <input id="autoSend" type="checkbox" checked aria-label="启用自动发送">
             <span id="autoSendPrefix">在</span>
             <input id="delaySeconds" type="number" inputmode="decimal" min="0.1" max="30" step="0.1" value="2">
             <span id="autoSendSuffix">秒后自动发送！</span>
           </div>
+          <!-- 回车行为切换：发送 / 换行 -->
+          <div id="enterBehaviorToggle" class="enterBehaviorToggle" role="switch" aria-checked="false" tabindex="0">
+            <span>当前：</span><span class="toggleLabel">回车发送</span>
+          </div>
         </div>
         <div class="actions textActions">
           <button id="keyEscape" class="keyButton escapeAction" type="button">ESC</button>
           <button id="send" class="sendButton primaryAction" type="button" aria-label="发送或回车">发送<span class="enterIcon" aria-hidden="true">⏎</span></button>
-          <button id="clear" class="secondary clearAction" type="button">清空</button>
+          <button id="snippets" class="keyButton snippetsAction" type="button">⚡ 快捷指令</button>
         </div>
       </div>
 
@@ -329,14 +446,34 @@
     <div id="status" class="statusbar">等待输入。</div>
   </main>
 
+  <!-- 快捷指令弹窗 -->
+  <div id="snippetOverlay" class="snippetOverlay" hidden>
+    <div class="snippetPanel">
+      <div class="snippetPanelHeader">
+        <h3>快捷指令</h3>
+        <button id="snippetClose" class="snippetClose" type="button" aria-label="关闭">✕</button>
+      </div>
+      <div id="snippetList" class="snippetList"></div>
+      <div id="snippetForm" class="snippetForm" hidden>
+        <textarea id="snippetTextInput" placeholder="快捷指令内容"></textarea>
+        <div class="snippetFormActions">
+          <button id="snippetFormCancel" class="secondary" type="button">取消</button>
+          <button id="snippetFormSave" type="button">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const AUTO_SEND_STORAGE_KEY = "remoteInput.autoSendEnabled";
     const DELAY_STORAGE_KEY = "remoteInput.autoSendDelaySeconds";
     const HISTORY_STORAGE_KEY = "remoteInput.history";
     const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
+    const ENTER_BEHAVIOR_STORAGE_KEY = "remoteInput.enterNewlineMode";
+    const SNIPPETS_STORAGE_KEY = "remoteInput.snippets";
     const REALTIME_PATH = "/ws";
     const HISTORY_LIMIT = 30;
-    const BACKSPACE_SENTINEL = "\u200B";
+    const BACKSPACE_SENTINEL = "​";
     const text = document.getElementById("text");
     const textPanel = document.getElementById("textPanel");
     const touchpadPanel = document.getElementById("touchpadPanel");
@@ -348,7 +485,7 @@
     const autoSendPrefix = document.getElementById("autoSendPrefix");
     const autoSendSuffix = document.getElementById("autoSendSuffix");
     const sendButton = document.getElementById("send");
-    const clearButton = document.getElementById("clear");
+    const snippetsButton = document.getElementById("snippets");
     const keyEscapeButton = document.getElementById("keyEscape");
     const mouseLeftButton = document.getElementById("mouseLeft");
     const mouseRightButton = document.getElementById("mouseRight");
@@ -358,6 +495,15 @@
     const historyList = document.getElementById("historyList");
     const clearHistory = document.getElementById("clearHistory");
     const totalChars = document.getElementById("totalChars");
+    const enterBehaviorToggle = document.getElementById("enterBehaviorToggle");
+    const snippetOverlay = document.getElementById("snippetOverlay");
+    const snippetList = document.getElementById("snippetList");
+    const snippetForm = document.getElementById("snippetForm");
+    
+    const snippetTextInput = document.getElementById("snippetTextInput");
+    const snippetFormSave = document.getElementById("snippetFormSave");
+    const snippetFormCancel = document.getElementById("snippetFormCancel");
+    const snippetClose = document.getElementById("snippetClose");
 
     let pendingTimer = null;
     let countdownStartedAt = 0;
@@ -389,16 +535,20 @@
     let realtimeReconnectTimer = null;
     const canUseBeforeInput = "onbeforeinput" in text;
     let composerTextBeforeInput = "";
+    let enterNewlineMode = false;
+    let editingSnippetId = null;
+    const DEFAULT_SNIPPETS = [
+      { id: "1", text: "/compact" },
+      { id: "2", text: "/resume" },
+      { id: "3", text: "" },
+    ];
 
     function getComposerText() {
       return text.value.split(BACKSPACE_SENTINEL).join("");
     }
 
     function placeCaretAtComposerEnd() {
-      try {
-        text.setSelectionRange(text.value.length, text.value.length);
-      } catch {
-      }
+      try { text.setSelectionRange(text.value.length, text.value.length); } catch {}
     }
 
     function ensureBackspaceSentinel() {
@@ -413,27 +563,14 @@
     }
 
     function restoreBackspaceSentinelAfterDelete(event) {
-      if (
-        event.inputType === "deleteContentBackward" &&
-        composerTextBeforeInput === "" &&
-        !text.value.includes(BACKSPACE_SENTINEL)
-      ) {
-        syncBackspace();
-      }
+      if (event.inputType === "deleteContentBackward" && composerTextBeforeInput === "" && !text.value.includes(BACKSPACE_SENTINEL)) syncBackspace();
       ensureBackspaceSentinel();
     }
 
     function focusComposer() {
       if (currentMode !== "text") return;
-      try {
-        text.focus({ preventScroll: true });
-      } catch {
-        text.focus();
-      }
-      try {
-        text.setSelectionRange(text.value.length, text.value.length);
-      } catch {
-      }
+      try { text.focus({ preventScroll: true }); } catch { text.focus(); }
+      try { text.setSelectionRange(text.value.length, text.value.length); } catch {}
       ensureBackspaceSentinel();
     }
 
@@ -443,10 +580,7 @@
       focusComposer();
     }
 
-    function primeMobileKeyboard() {
-      focusComposer();
-      setTimeout(focusComposer, 200);
-    }
+    function primeMobileKeyboard() { focusComposer(); setTimeout(focusComposer, 200); }
 
     function focusComposerOnFirstTouch() {
       if (document.activeElement !== text) focusComposer();
@@ -461,25 +595,173 @@
       touchpadPanel.hidden = !mouseMode;
       modeToggle.textContent = mouseMode ? "输入" : "触控板";
       stopCountdown();
-      if (mouseMode) {
-        text.blur();
-        setStatus("触控板模式。");
-      } else {
-        if (dragLocked) setDragLocked(false);
-        resetClickChain();
-        setStatus("输入模式。");
-        focusComposer();
+      if (mouseMode) { text.blur(); setStatus("触控板模式。"); }
+      else { if (dragLocked) setDragLocked(false); resetClickChain(); setStatus("输入模式。"); focusComposer(); }
+    }
+
+    // ---- 快捷指令 ----
+    function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+    function loadSnippets() {
+      try {
+        const raw = window.localStorage.getItem(SNIPPETS_STORAGE_KEY);
+        const arr = raw ? JSON.parse(raw) : null;
+        if (Array.isArray(arr)) return arr;
+      } catch {}
+      window.localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(DEFAULT_SNIPPETS));
+      return DEFAULT_SNIPPETS.map(s => ({ ...s }));
+    }
+
+    function saveSnippets(snippets) {
+      window.localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(snippets));
+    }
+
+    function renderSnippetList() {
+      const snippets = loadSnippets();
+      snippetList.innerHTML = "";
+      if (snippets.length === 0) {
+        snippetList.innerHTML = '<div class="snippetEmpty">暂无快捷指令，在下方添加。</div>';
+        return;
+      }
+      for (const s of snippets) {
+        const row = document.createElement("div");
+        row.className = "snippetItem";
+        const displayText = s.text ? s.text : "（清空输入框）";
+        const isEmpty = !s.text;
+        row.innerHTML =
+          '<div class="snippetItemPreview"' + (isEmpty ? ' style="color:#b73535;font-style:italic"' : '') + '>' + escapeHtml(displayText) + '</div>' +
+          '<button class="snippetItemBtn" data-action="edit" title="编辑">✎</button>' +
+          '<button class="snippetItemBtn danger" data-action="delete" title="删除">✕</button>';
+        row.addEventListener("click", (e) => {
+          if (e.target.closest("[data-action]")) return;
+          applySnippet(s);
+        });
+        row.querySelector("[data-action=edit]").addEventListener("click", () => startEditSnippet(s));
+        row.querySelector("[data-action=delete]").addEventListener("click", () => deleteSnippet(s.id));
+        snippetList.appendChild(row);
       }
     }
 
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function applySnippet(snippet) {
+      closeSnippetModal();
+      if (snippet.text) {
+        setComposerText(snippet.text);
+        setStatus("已填入快捷指令。");
+      } else {
+        stopCountdown();
+        text.value = BACKSPACE_SENTINEL;
+        setStatus("已清空。");
+      }
+      focusComposer();
+    }
+
+    function deleteSnippet(id) {
+      if (!window.confirm("确定要删除这条快捷指令吗？")) return;
+      const snippets = loadSnippets().filter(s => s.id !== id);
+      saveSnippets(snippets);
+      renderSnippetList();
+      setStatus("快捷指令已删除。");
+    }
+
+    function startAddSnippet() {
+      editingSnippetId = null;
+      snippetTextInput.value = "";
+      snippetForm.hidden = false;
+      snippetTextInput.focus();
+    }
+
+    function startEditSnippet(snippet) {
+      editingSnippetId = snippet.id;
+      snippetTextInput.value = snippet.text;
+      snippetForm.hidden = false;
+      snippetTextInput.focus();
+    }
+
+    function cancelSnippetForm() {
+      editingSnippetId = null;
+      snippetForm.hidden = true;
+      snippetTextInput.value = "";
+    }
+
+    function saveSnippetForm() {
+      const textVal = snippetTextInput.value;
+      const snippets = loadSnippets();
+      if (editingSnippetId) {
+        const idx = snippets.findIndex(s => s.id === editingSnippetId);
+        if (idx !== -1) snippets[idx].text = textVal;
+      } else {
+        snippets.push({ id: genId(), text: textVal });
+      }
+      saveSnippets(snippets);
+      cancelSnippetForm();
+      renderSnippetList();
+      setStatus(editingSnippetId ? "快捷指令已更新。" : "快捷指令已添加。");
+    }
+
+    function openSnippetModal() {
+      snippetOverlay.hidden = false;
+      cancelSnippetForm();
+      renderSnippetList();
+      snippetList.scrollTop = 0;
+    }
+
+    function closeSnippetModal() {
+      snippetOverlay.hidden = true;
+      cancelSnippetForm();
+    }
+
+    snippetClose.addEventListener("click", closeSnippetModal);
+    snippetOverlay.addEventListener("click", (e) => { if (e.target === snippetOverlay) closeSnippetModal(); });
+    snippetFormSave.addEventListener("click", saveSnippetForm);
+    snippetFormCancel.addEventListener("click", cancelSnippetForm);
+    snippetsButton.addEventListener("click", openSnippetModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !snippetOverlay.hidden) { closeSnippetModal(); e.preventDefault(); }
+    });
+
+    // ---- 回车行为切换 ----
+    function loadSavedEnterBehavior() {
+      enterNewlineMode = window.localStorage.getItem(ENTER_BEHAVIOR_STORAGE_KEY) === "true";
+      updateEnterBehaviorUI();
+    }
+
+    function saveEnterBehavior() {
+      window.localStorage.setItem(ENTER_BEHAVIOR_STORAGE_KEY, enterNewlineMode ? "true" : "false");
+    }
+
+    function updateEnterBehaviorUI() {
+      if (enterNewlineMode) {
+        enterBehaviorToggle.classList.add("newlineMode");
+        enterBehaviorToggle.querySelector(".toggleLabel").textContent = "回车换行";
+        enterBehaviorToggle.setAttribute("aria-checked", "true");
+      } else {
+        enterBehaviorToggle.classList.remove("newlineMode");
+        enterBehaviorToggle.querySelector(".toggleLabel").textContent = "回车发送";
+        enterBehaviorToggle.setAttribute("aria-checked", "false");
+      }
+    }
+
+    function toggleEnterBehavior() {
+      enterNewlineMode = !enterNewlineMode;
+      updateEnterBehaviorUI();
+      saveEnterBehavior();
+      setStatus(enterNewlineMode ? "回车键将插入换行。" : "回车键将发送文本。");
+    }
+
+    enterBehaviorToggle.addEventListener("click", toggleEnterBehavior);
+    enterBehaviorToggle.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleEnterBehavior(); }
+    });
 
     function loadHistory() {
-      try {
-        const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
-      } catch {
-        return [];
-      }
+      try { const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
+      catch { return []; }
     }
 
     function saveHistory(items) {
@@ -491,20 +773,11 @@
       return Number.isFinite(count) && count > 0 ? count : 0;
     }
 
-    function updateTotalChars(count) {
-      totalChars.textContent = count.toLocaleString("zh-CN");
-    }
+    function updateTotalChars(count) { totalChars.textContent = count.toLocaleString("zh-CN"); }
 
     async function loadTotalChars() {
-      try {
-        const result = await fetchJson("/api/stats");
-        const count = normalizeTotalChars(result.totalChars);
-        window.localStorage.setItem(TOTAL_CHARS_STORAGE_KEY, count.toString());
-        updateTotalChars(count);
-        return;
-      } catch {
-      }
-      updateTotalChars(normalizeTotalChars(window.localStorage.getItem(TOTAL_CHARS_STORAGE_KEY)));
+      try { const result = await fetchJson("/api/stats"); const count = normalizeTotalChars(result.totalChars); window.localStorage.setItem(TOTAL_CHARS_STORAGE_KEY, count.toString()); updateTotalChars(count); }
+      catch { updateTotalChars(normalizeTotalChars(window.localStorage.getItem(TOTAL_CHARS_STORAGE_KEY))); }
     }
 
     function setTotalChars(count) {
@@ -513,17 +786,11 @@
       updateTotalChars(normalized);
     }
 
-    function confirmHistoryOverwrite() {
-      return window.confirm("输入框已有内容，要覆盖当前输入内容吗？");
-    }
+    function confirmHistoryOverwrite() { return window.confirm("输入框已有内容，要覆盖当前输入内容吗？"); }
 
     function applyHistoryItem(item) {
       if (item.kind !== "text" || typeof item.text !== "string") return;
-      if (getComposerText().trim() && !confirmHistoryOverwrite()) {
-        focusComposer();
-        return;
-      }
-
+      if (getComposerText().trim() && !confirmHistoryOverwrite()) { focusComposer(); return; }
       stopCountdown();
       setComposerText(item.text);
       setStatus("已填充历史记录，可编辑后发送。");
@@ -534,378 +801,116 @@
     function renderHistory() {
       const items = loadHistory();
       historyList.innerHTML = "";
-      if (items.length === 0) {
-        const empty = document.createElement("div");
-        empty.className = "historyItem";
-        empty.textContent = "暂无发送历史。";
-        historyList.appendChild(empty);
-        return;
-      }
+      if (items.length === 0) { historyList.innerHTML = '<div class="historyItem">暂无发送历史。</div>'; return; }
       for (const item of items) {
         const node = document.createElement("div");
         node.className = "historyItem";
         if (item.kind === "text" && typeof item.text === "string") {
           node.classList.add("clickable");
-          node.setAttribute("role", "button");
-          node.setAttribute("tabindex", "0");
+          node.setAttribute("role", "button"); node.setAttribute("tabindex", "0");
           node.addEventListener("click", () => applyHistoryItem(item));
-          node.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              applyHistoryItem(item);
-            }
-          });
+          node.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); applyHistoryItem(item); } });
         }
-        const meta = document.createElement("div");
-        meta.className = "historyMeta";
-        meta.textContent = new Date(item.createdAt).toLocaleString();
-        const body = document.createElement("div");
-        body.textContent = item.kind === "key" ? "[按键] " + item.key : item.text;
-        node.appendChild(meta);
-        node.appendChild(body);
+        const meta = document.createElement("div"); meta.className = "historyMeta"; meta.textContent = new Date(item.createdAt).toLocaleString();
+        const body = document.createElement("div"); body.textContent = item.kind === "key" ? "[按键] " + item.key : item.text;
+        node.appendChild(meta); node.appendChild(body);
         historyList.appendChild(node);
       }
     }
 
-    function addHistoryItem(item) {
-      const items = loadHistory();
-      items.unshift({ ...item, createdAt: new Date().toISOString() });
-      saveHistory(items);
-      renderHistory();
-    }
-    function setStatus(message, isError = false) {
-      statusNode.textContent = message;
-      statusNode.classList.toggle("error", isError);
-    }
+    function addHistoryItem(item) { const items = loadHistory(); items.unshift({ ...item, createdAt: new Date().toISOString() }); saveHistory(items); renderHistory(); }
 
-    function stopCountdown() {
-      clearTimeout(pendingTimer);
-      pendingTimer = null;
-    }
+    function setStatus(message, isError = false) { statusNode.textContent = message; statusNode.classList.toggle("error", isError); }
 
-    function normalizeDelaySeconds(value) {
-      const seconds = Number.parseFloat(value);
-      if (!Number.isFinite(seconds) || seconds <= 0) return 2;
-      return Math.min(30, Math.max(0.1, seconds));
-    }
+    function stopCountdown() { clearTimeout(pendingTimer); pendingTimer = null; }
 
-    function loadSavedDelay() {
-      const savedValue = window.localStorage.getItem(DELAY_STORAGE_KEY);
-      if (savedValue !== null) delaySeconds.value = normalizeDelaySeconds(savedValue).toString();
-    }
+    function normalizeDelaySeconds(value) { const s = Number.parseFloat(value); if (!Number.isFinite(s) || s <= 0) return 2; return Math.min(30, Math.max(0.1, s)); }
 
-    function loadSavedAutoSend() {
-      const savedValue = window.localStorage.getItem(AUTO_SEND_STORAGE_KEY);
-      if (savedValue !== null) autoSend.checked = savedValue === "true";
-    }
+    function loadSavedDelay() { const v = window.localStorage.getItem(DELAY_STORAGE_KEY); if (v !== null) delaySeconds.value = normalizeDelaySeconds(v).toString(); }
 
-    function saveAutoSend() {
-      window.localStorage.setItem(AUTO_SEND_STORAGE_KEY, autoSend.checked ? "true" : "false");
-    }
+    function loadSavedAutoSend() { const v = window.localStorage.getItem(AUTO_SEND_STORAGE_KEY); if (v !== null) autoSend.checked = v === "true"; }
 
-    function renderAutoSendCopy() {
-      autoSendPrefix.textContent = autoSend.checked ? "在" : "要在";
-      autoSendSuffix.textContent = autoSend.checked ? "秒后自动发送！" : "秒后自动发送吗？";
-    }
+    function saveAutoSend() { window.localStorage.setItem(AUTO_SEND_STORAGE_KEY, autoSend.checked ? "true" : "false"); }
 
-    function saveDelayDraft() {
-      window.localStorage.setItem(DELAY_STORAGE_KEY, delaySeconds.value);
-    }
+    function renderAutoSendCopy() { autoSendPrefix.textContent = autoSend.checked ? "在" : "要在"; autoSendSuffix.textContent = autoSend.checked ? "秒后自动发送！" : "秒后自动发送吗？"; }
 
-    function commitDelay() {
-      const seconds = normalizeDelaySeconds(delaySeconds.value);
-      delaySeconds.value = seconds.toString();
-      window.localStorage.setItem(DELAY_STORAGE_KEY, seconds.toString());
-    }
+    function saveDelayDraft() { window.localStorage.setItem(DELAY_STORAGE_KEY, delaySeconds.value); }
 
-    function getAutoSendDelay() {
-      return normalizeDelaySeconds(delaySeconds.value) * 1000;
-    }
+    function commitDelay() { delaySeconds.value = normalizeDelaySeconds(delaySeconds.value).toString(); window.localStorage.setItem(DELAY_STORAGE_KEY, delaySeconds.value); }
+
+    function getAutoSendDelay() { return normalizeDelaySeconds(delaySeconds.value) * 1000; }
 
     function startCountdown() {
       stopCountdown();
       if (!autoSend.checked || sending || !getComposerText().trim()) return;
-
-      const autoSendDelay = getAutoSendDelay();
-      countdownStartedAt = Date.now();
-      setStatus("停止输入后 " + (autoSendDelay / 1000).toString() + " 秒自动发送。");
-      pendingTimer = setTimeout(() => sendText({ source: "auto" }), autoSendDelay);
+      const d = getAutoSendDelay(); countdownStartedAt = Date.now();
+      setStatus("停止输入后 " + (d / 1000).toString() + " 秒自动发送。");
+      pendingTimer = setTimeout(() => sendText({ source: "auto" }), d);
     }
 
-    function getRealtimeUrl() {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      return protocol + "//" + window.location.host + REALTIME_PATH;
-    }
+    function getRealtimeUrl() { return (window.location.protocol === "https:" ? "wss:" : "ws:") + "//" + window.location.host + REALTIME_PATH; }
 
-    function scheduleRealtimeReconnect() {
-      if (realtimeReconnectTimer !== null) return;
-      realtimeReconnectTimer = window.setTimeout(() => {
-        realtimeReconnectTimer = null;
-        connectRealtime();
-      }, 900);
-    }
+    function scheduleRealtimeReconnect() { if (realtimeReconnectTimer !== null) return; realtimeReconnectTimer = window.setTimeout(() => { realtimeReconnectTimer = null; connectRealtime(); }, 900); }
 
     function connectRealtime() {
       if (!("WebSocket" in window)) return;
-      if (realtimeSocket && (
-        realtimeSocket.readyState === WebSocket.OPEN ||
-        realtimeSocket.readyState === WebSocket.CONNECTING
-      )) return;
-
-      try {
-        realtimeSocket = new WebSocket(getRealtimeUrl());
-      } catch {
-        realtimeSocket = null;
-        return;
-      }
-
-      realtimeSocket.addEventListener("open", () => {
-        if (realtimeReconnectTimer !== null) {
-          window.clearTimeout(realtimeReconnectTimer);
-          realtimeReconnectTimer = null;
-        }
-      });
-      realtimeSocket.addEventListener("message", (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          if (payload && payload.ok === false) setStatus(payload.error || "实时控制失败", true);
-        } catch {
-        }
-      });
+      if (realtimeSocket && (realtimeSocket.readyState === WebSocket.OPEN || realtimeSocket.readyState === WebSocket.CONNECTING)) return;
+      try { realtimeSocket = new WebSocket(getRealtimeUrl()); } catch { realtimeSocket = null; return; }
+      realtimeSocket.addEventListener("open", () => { if (realtimeReconnectTimer !== null) { window.clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer = null; } });
+      realtimeSocket.addEventListener("message", (event) => { try { const p = JSON.parse(event.data); if (p && p.ok === false) setStatus(p.error || "实时控制失败", true); } catch {} });
       realtimeSocket.addEventListener("close", scheduleRealtimeReconnect);
-      realtimeSocket.addEventListener("error", () => {
-        try {
-          realtimeSocket.close();
-        } catch {
-        }
-      });
+      realtimeSocket.addEventListener("error", () => { try { realtimeSocket.close(); } catch {} });
     }
 
     async function sendRealtime(message, fallback) {
-      if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
-        try {
-          realtimeSocket.send(JSON.stringify(message));
-          return { ok: true, realtime: true };
-        } catch {
-        }
-      }
-      connectRealtime();
-      return fallback();
+      if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) { try { realtimeSocket.send(JSON.stringify(message)); return { ok: true, realtime: true }; } catch {} }
+      connectRealtime(); return fallback();
     }
 
-    async function fetchJson(url, options = {}) {
-      const response = await fetch(url, options);
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "请求失败");
-      return result;
-    }
+    async function fetchJson(url, options = {}) { const r = await fetch(url, options); const j = await r.json(); if (!r.ok) throw new Error(j.error || "请求失败"); return j; }
 
-    async function postJson(url, payload) {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "请求失败");
-      return result;
-    }
+    async function postJson(url, payload) { const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const j = await r.json(); if (!r.ok) throw new Error(j.error || "请求失败"); return j; }
 
-    function flushMouseMove() {
-      mouseFrame = null;
-      const dx = Math.round(pendingMouseDx);
-      const dy = Math.round(pendingMouseDy);
-      pendingMouseDx -= dx;
-      pendingMouseDy -= dy;
-      if (dx === 0 && dy === 0) return;
-      syncMouseMove(dx, dy);
-    }
+    function flushMouseMove() { mouseFrame = null; const dx = Math.round(pendingMouseDx), dy = Math.round(pendingMouseDy); pendingMouseDx -= dx; pendingMouseDy -= dy; if (dx || dy) syncMouseMove(dx, dy); }
+    function queueMouseMove(dx, dy) { pendingMouseDx += dx; pendingMouseDy += dy; if (mouseFrame === null) mouseFrame = window.requestAnimationFrame(flushMouseMove); }
+    function flushMouseScroll() { scrollFrame = null; const dx = Math.round(pendingScrollDx), dy = Math.round(pendingScrollDy); pendingScrollDx = 0; pendingScrollDy = 0; if (dx || dy) syncMouseScroll(dx, dy); }
+    function queueMouseScroll(dx, dy) { pendingScrollDx += dx; pendingScrollDy += dy; if (scrollFrame === null) scrollFrame = window.requestAnimationFrame(flushMouseScroll); }
+    function scaleTrackpadDelta(dx, dy) { return { dx: dx * TRACKPAD_SPEED, dy: dy * TRACKPAD_SPEED }; }
+    function getTwoFingerScrollAxis() { const p = Array.from(activeTrackpadPointers.values()); if (p.length < 2) return null; return Math.abs(p[1].lastX - p[0].lastX) >= Math.abs(p[1].lastY - p[0].lastY) ? "vertical" : "horizontal"; }
 
-    function queueMouseMove(dx, dy) {
-      pendingMouseDx += dx;
-      pendingMouseDy += dy;
-      if (mouseFrame === null) mouseFrame = window.requestAnimationFrame(flushMouseMove);
-    }
+    async function syncMouseMove(dx, dy) { try { await sendRealtime({ type: "mouseMove", dx, dy }, () => postJson("/api/mouse/move", { dx, dy })); } catch (e) { setStatus(e.message || "鼠标移动失败", true); } }
+    async function syncMouseScroll(dx, dy) { try { await sendRealtime({ type: "mouseScroll", dx, dy }, () => postJson("/api/mouse/scroll", { dx, dy })); } catch (e) { setStatus(e.message || "鼠标滚轮失败", true); } }
+    async function syncMouseClick(button) { try { await sendRealtime({ type: "mouseClick", button }, () => postJson("/api/mouse/click", { button })); } catch (e) { setStatus(e.message || "鼠标点击失败", true); } }
+    async function syncMouseButton(button, action) { try { await sendRealtime({ type: "mouseButton", button, action }, () => postJson("/api/mouse/button", { button, action })); } catch (e) { setStatus(e.message || "鼠标按键失败", true); } }
 
-    function flushMouseScroll() {
-      scrollFrame = null;
-      const dx = Math.round(pendingScrollDx);
-      const dy = Math.round(pendingScrollDy);
-      pendingScrollDx = 0;
-      pendingScrollDy = 0;
-      if (dx === 0 && dy === 0) return;
-      syncMouseScroll(dx, dy);
-    }
-
-    function queueMouseScroll(dx, dy) {
-      pendingScrollDx += dx;
-      pendingScrollDy += dy;
-      if (scrollFrame === null) scrollFrame = window.requestAnimationFrame(flushMouseScroll);
-    }
-
-    function scaleTrackpadDelta(dx, dy) {
-      return { dx: dx * TRACKPAD_SPEED, dy: dy * TRACKPAD_SPEED };
-    }
-
-    function getTwoFingerScrollAxis() {
-      const pointers = Array.from(activeTrackpadPointers.values());
-      if (pointers.length < 2) return null;
-      const first = pointers[0];
-      const second = pointers[1];
-      return Math.abs(second.lastX - first.lastX) >= Math.abs(second.lastY - first.lastY) ? "vertical" : "horizontal";
-    }
-
-    async function syncMouseMove(dx, dy) {
-      try {
-        await sendRealtime(
-          { type: "mouseMove", dx, dy },
-          () => postJson("/api/mouse/move", { dx, dy })
-        );
-      } catch (error) {
-        setStatus(error.message || "鼠标移动失败", true);
-      }
-    }
-
-    async function syncMouseScroll(dx, dy) {
-      try {
-        await sendRealtime(
-          { type: "mouseScroll", dx, dy },
-          () => postJson("/api/mouse/scroll", { dx, dy })
-        );
-      } catch (error) {
-        setStatus(error.message || "鼠标滚轮失败", true);
-      }
-    }
-
-    async function syncMouseClick(button) {
-      try {
-        await sendRealtime(
-          { type: "mouseClick", button },
-          () => postJson("/api/mouse/click", { button })
-        );
-      } catch (error) {
-        setStatus(error.message || "鼠标点击失败", true);
-      }
-    }
-
-    async function syncMouseButton(button, action) {
-      try {
-        await sendRealtime(
-          { type: "mouseButton", button, action },
-          () => postJson("/api/mouse/button", { button, action })
-        );
-      } catch (error) {
-        setStatus(error.message || "鼠标按键失败", true);
-      }
-    }
-
-    function setDragLocked(locked) {
-      if (dragLocked === locked) return;
-      dragLocked = locked;
-      trackpad.classList.toggle("dragLocked", dragLocked);
-      syncMouseButton("left", locked ? "down" : "up");
-      setStatus(locked ? "拖拽中，松开结束。" : "拖拽结束。");
-    }
+    function setDragLocked(locked) { if (dragLocked === locked) return; dragLocked = locked; trackpad.classList.toggle("dragLocked", dragLocked); syncMouseButton("left", locked ? "down" : "up"); setStatus(locked ? "拖拽中，松开结束。" : "拖拽结束。"); }
 
     async function sendText(options = {}) {
-      const payloadText = getComposerText();
-      if (!payloadText.trim() || sending) return;
-
-      stopCountdown();
-      sending = true;
-      sendButton.disabled = true;
-      setStatus(options.source === "auto" ? "自动发送中..." : "发送中...");
-
-      try {
-        const result = await postJson("/api/type", { text: payloadText });
-        addHistoryItem({ kind: "text", text: payloadText });
-        if (typeof result.totalChars === "number") setTotalChars(result.totalChars);
-        text.value = BACKSPACE_SENTINEL;
-        setStatus("已发送，耗时 " + (result.durationMs || 0) + " ms。");
-      } catch (error) {
-        setStatus(error.message || "发送失败", true);
-      } finally {
-        sending = false;
-        sendButton.disabled = false;
-        focusComposer();
-      }
+      const payloadText = getComposerText(); if (!payloadText.trim() || sending) return;
+      stopCountdown(); sending = true; sendButton.disabled = true; setStatus(options.source === "auto" ? "自动发送中..." : "发送中...");
+      try { const r = await postJson("/api/type", { text: payloadText }); addHistoryItem({ kind: "text", text: payloadText }); if (typeof r.totalChars === "number") setTotalChars(r.totalChars); text.value = BACKSPACE_SENTINEL; setStatus("已发送，耗时 " + (r.durationMs || 0) + " ms。"); }
+      catch (e) { setStatus(e.message || "发送失败", true); }
+      finally { sending = false; sendButton.disabled = false; focusComposer(); }
     }
 
-    async function syncKey(key) {
-      if (syncingKey) return;
-      stopCountdown();
-      syncingKey = true;
+    async function syncKey(key) { if (syncingKey) return; stopCountdown(); syncingKey = true; try { await sendRealtime({ type: "key", key }, () => postJson("/api/key", { key })); } catch (e) { setStatus(e.message || "按键同步失败", true); } finally { syncingKey = false; } }
 
-      try {
-        await sendRealtime(
-          { type: "key", key },
-          () => postJson("/api/key", { key })
-        );
-
-
-      } catch (error) {
-        setStatus(error.message || "按键同步失败", true);
-      } finally {
-        syncingKey = false;
-      }
-    }
-
-    function syncBackspace() {
-      syncKey("backspace");
-    }
-
-    function syncEnter(event) {
-      event.preventDefault();
-      syncKey("enter");
-    }
+    function syncBackspace() { syncKey("backspace"); }
+    function syncEnter(event) { event.preventDefault(); syncKey("enter"); }
 
     function sendOrEnter() {
-      if (getComposerText().trim()) {
-        sendText({ source: "manual" });
-      } else {
-        syncKey("enter");
-      }
+      if (enterNewlineMode) { syncKey("enter"); return; }
+      getComposerText().trim() ? sendText({ source: "manual" }) : syncKey("enter");
     }
 
-    function sendOnEnter(event) {
-      if (!getComposerText().trim() || sending) return;
-      event.preventDefault();
-      sendText({ source: "enter" });
-    }
+    function sendOnEnter(event) { if (enterNewlineMode) return; if (!getComposerText().trim() || sending) return; event.preventDefault(); sendText({ source: "enter" }); }
 
-    text.addEventListener("beforeinput", (event) => {
-      composerTextBeforeInput = getComposerText();
-      if (event.inputType === "insertLineBreak") {
-        getComposerText().trim() ? sendOnEnter(event) : syncEnter(event);
-      }
-    });
-    text.addEventListener("keydown", (event) => {
-      if (event.key === "Backspace" && !canUseBeforeInput && getComposerText() === "") syncBackspace();
-      if (event.key === "Enter" && !canUseBeforeInput) {
-        getComposerText().trim() ? sendOnEnter(event) : syncEnter(event);
-      }
-    });
-    text.addEventListener("input", (event) => {
-      restoreBackspaceSentinelAfterDelete(event);
-      startCountdown();
-    });
-    delaySeconds.addEventListener("input", () => {
-      saveDelayDraft();
-      startCountdown();
-    });
-    delaySeconds.addEventListener("blur", () => {
-      commitDelay();
-      startCountdown();
-    });
-    autoSend.addEventListener("change", () => {
-      saveAutoSend();
-      renderAutoSendCopy();
-      if (autoSend.checked) startCountdown();
-      else {
-        stopCountdown();
-        setStatus("自动发送已关闭。");
-      }
-    });
+    text.addEventListener("beforeinput", (event) => { composerTextBeforeInput = getComposerText(); if (event.inputType === "insertLineBreak") { if (enterNewlineMode) return; getComposerText().trim() ? sendOnEnter(event) : syncEnter(event); } });
+    text.addEventListener("keydown", (event) => { if (event.key === "Backspace" && !canUseBeforeInput && getComposerText() === "") syncBackspace(); if (event.key === "Enter" && !canUseBeforeInput) { if (enterNewlineMode) return; getComposerText().trim() ? sendOnEnter(event) : syncEnter(event); } });
+    text.addEventListener("input", (event) => { restoreBackspaceSentinelAfterDelete(event); startCountdown(); });
+    delaySeconds.addEventListener("input", () => { saveDelayDraft(); startCountdown(); });
+    delaySeconds.addEventListener("blur", () => { commitDelay(); startCountdown(); });
+    autoSend.addEventListener("change", () => { saveAutoSend(); renderAutoSendCopy(); if (autoSend.checked) startCountdown(); else { stopCountdown(); setStatus("自动发送已关闭。"); } });
     sendButton.addEventListener("pointerdown", keepComposerFocus);
     sendButton.addEventListener("click", sendOrEnter);
     keyEscapeButton.addEventListener("click", () => syncKey("escape"));
@@ -914,215 +919,66 @@
     mouseRightButton.addEventListener("click", () => syncMouseClick("right"));
     mouseKeyUpButton.addEventListener("click", () => syncKey("up"));
     mouseKeyDownButton.addEventListener("click", () => syncKey("down"));
-    function resetTrackpadTap() {
-      tapStartedAt = 0;
-      tapPointerCount = 0;
-      tapMoved = false;
-      tapStartedDrag = false;
-      doubleTapPending = false;
-      doubleTapIntervalMs = null;
-    }
 
-    function cancelPendingSingleTapClick() {
-      if (pendingSingleTapTimer === null) return;
-      window.clearTimeout(pendingSingleTapTimer);
-      pendingSingleTapTimer = null;
-    }
+    function resetTrackpadTap() { tapStartedAt = 0; tapPointerCount = 0; tapMoved = false; tapStartedDrag = false; doubleTapPending = false; doubleTapIntervalMs = null; }
+    function cancelPendingSingleTapClick() { if (pendingSingleTapTimer === null) return; window.clearTimeout(pendingSingleTapTimer); pendingSingleTapTimer = null; }
+    function resetClickChain() { cancelPendingSingleTapClick(); lastClickDownAt = 0; }
+    function flushPendingSingleTapClick() { if (pendingSingleTapTimer === null) return; cancelPendingSingleTapClick(); lastClickDownAt = 0; syncMouseClick("left"); }
+    function scheduleSingleTapClick(s) { cancelPendingSingleTapClick(); lastClickDownAt = s; pendingSingleTapTimer = window.setTimeout(() => { pendingSingleTapTimer = null; lastClickDownAt = 0; syncMouseClick("left"); }, DOUBLE_TAP_MAX_MS); }
+    function updateTapDebug(v, d) { tapDebug.textContent = "双击间隔：" + (v === null ? "--" : Math.round(v)) + " ms" + (d ? "，" + d : ""); }
+    function startDragFromDoubleTap(v) { resetClickChain(); tapStartedDrag = true; updateTapDebug(v, "已触发拖拽"); setDragLocked(true); }
 
-    function resetClickChain() {
-      cancelPendingSingleTapClick();
-      lastClickDownAt = 0;
-    }
-
-    function flushPendingSingleTapClick() {
-      if (pendingSingleTapTimer === null) return;
-      cancelPendingSingleTapClick();
-      lastClickDownAt = 0;
-      syncMouseClick("left");
-    }
-
-    function scheduleSingleTapClick(startedAt) {
-      cancelPendingSingleTapClick();
-      lastClickDownAt = startedAt;
-      pendingSingleTapTimer = window.setTimeout(() => {
-        pendingSingleTapTimer = null;
-        lastClickDownAt = 0;
-        syncMouseClick("left");
-      }, DOUBLE_TAP_MAX_MS);
-    }
-
-    function updateTapDebug(tapIntervalMs, detail = "") {
-      const value = tapIntervalMs === null ? "--" : Math.round(tapIntervalMs).toString();
-      tapDebug.textContent = "双击间隔：" + value + " ms" + (detail ? "，" + detail : "");
-    }
-
-    function startDragFromDoubleTap(tapIntervalMs) {
-      resetClickChain();
-      tapStartedDrag = true;
-      updateTapDebug(tapIntervalMs, "已触发拖拽");
-      setDragLocked(true);
-    }
-
-    function finishTrackpadTap(cancelled = false) {
+    function finishTrackpadTap(cancelled) {
       const elapsed = performance.now() - tapStartedAt;
-      const shouldClick = !cancelled && tapStartedAt && !tapMoved && elapsed <= TAP_MAX_MS;
-      const pointerCount = tapPointerCount;
-      const startedAt = tapStartedAt;
-      const startedDrag = tapStartedDrag;
-      resetTrackpadTap();
-      if (startedDrag) return;
-      if (!shouldClick) {
-        resetClickChain();
-        return;
-      }
-      if (pointerCount >= 2) {
-        resetClickChain();
-        syncMouseClick("right");
-        return;
-      }
-      scheduleSingleTapClick(startedAt);
+      const ok = !cancelled && tapStartedAt && !tapMoved && elapsed <= TAP_MAX_MS;
+      const c = tapPointerCount, started = tapStartedAt, wasDrag = tapStartedDrag;
+      resetTrackpadTap(); if (wasDrag) return;
+      if (!ok) { resetClickChain(); return; }
+      if (c >= 2) { resetClickChain(); syncMouseClick("right"); return; }
+      scheduleSingleTapClick(started);
     }
 
     trackpad.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       if (activeTrackpadPointers.size === 0) {
         const startedAt = performance.now();
-        tapStartedAt = startedAt;
-        tapPointerCount = 0;
-        tapMoved = false;
-        tapStartedDrag = false;
-        doubleTapPending = false;
-        doubleTapIntervalMs = null;
+        tapStartedAt = startedAt; tapPointerCount = 0; tapMoved = false; tapStartedDrag = false; doubleTapPending = false; doubleTapIntervalMs = null;
         const tapIntervalMs = lastClickDownAt > 0 ? startedAt - lastClickDownAt : null;
         if (!dragLocked && tapIntervalMs !== null && tapIntervalMs < DOUBLE_TAP_MAX_MS) {
-          // Fast double-tap: defer decision — drag if moved, double-click if released in place
-          cancelPendingSingleTapClick();
-          lastClickDownAt = 0;
-          doubleTapPending = true;
-          doubleTapIntervalMs = tapIntervalMs;
-          updateTapDebug(tapIntervalMs, "等待...");
-        } else {
-          if (tapIntervalMs !== null) flushPendingSingleTapClick();
-          updateTapDebug(tapIntervalMs, tapIntervalMs === null ? "" : "未触发");
-        }
+          cancelPendingSingleTapClick(); lastClickDownAt = 0; doubleTapPending = true; doubleTapIntervalMs = tapIntervalMs; updateTapDebug(tapIntervalMs, "等待...");
+        } else { if (tapIntervalMs !== null) flushPendingSingleTapClick(); updateTapDebug(tapIntervalMs, tapIntervalMs === null ? "" : "未触发"); }
       }
-      activeTrackpadPointers.set(event.pointerId, {
-        startX: event.clientX,
-        startY: event.clientY,
-        lastX: event.clientX,
-        lastY: event.clientY,
-        lastAt: event.timeStamp,
-      });
+      activeTrackpadPointers.set(event.pointerId, { startX: event.clientX, startY: event.clientY, lastX: event.clientX, lastY: event.clientY, lastAt: event.timeStamp });
       tapPointerCount = Math.max(tapPointerCount, activeTrackpadPointers.size);
       trackpad.setPointerCapture(event.pointerId);
     });
     trackpad.addEventListener("pointermove", (event) => {
-      const pointer = activeTrackpadPointers.get(event.pointerId);
-      if (!pointer) return;
-      event.preventDefault();
-      const totalDx = event.clientX - pointer.startX;
-      const totalDy = event.clientY - pointer.startY;
-      if (Math.hypot(totalDx, totalDy) > TAP_MAX_MOVE) {
-        tapMoved = true;
-        if (doubleTapPending) {
-          // Double-tap + move = drag
-          doubleTapPending = false;
-          tapStartedDrag = true;
-          updateTapDebug(doubleTapIntervalMs, "已触发拖拽");
-          setDragLocked(true);
-        }
-        if (!dragLocked) {
-          resetClickChain();
-          updateTapDebug(null, "已重置");
-        }
-      }
-      const dx = event.clientX - pointer.lastX;
-      const dy = event.clientY - pointer.lastY;
-      const adjusted = scaleTrackpadDelta(dx, dy);
-      pointer.lastX = event.clientX;
-      pointer.lastY = event.clientY;
-      pointer.lastAt = event.timeStamp;
-      if (activeTrackpadPointers.size >= 2) {
-        const scrollAxis = getTwoFingerScrollAxis();
-        const scrollDx = scrollAxis === "horizontal" ? -dx * TRACKPAD_SCROLL_SCALE : 0;
-        const scrollDy = scrollAxis === "vertical" ? dy * TRACKPAD_SCROLL_SCALE : 0;
-        queueMouseScroll(scrollDx, scrollDy);
-      } else if (activeTrackpadPointers.size === 1 && tapPointerCount === 1) {
-        queueMouseMove(adjusted.dx, adjusted.dy);
-      }
+      const p = activeTrackpadPointers.get(event.pointerId); if (!p) return; event.preventDefault();
+      if (Math.hypot(event.clientX - p.startX, event.clientY - p.startY) > TAP_MAX_MOVE) { tapMoved = true; if (doubleTapPending) { doubleTapPending = false; tapStartedDrag = true; updateTapDebug(doubleTapIntervalMs, "已触发拖拽"); setDragLocked(true); } if (!dragLocked) { resetClickChain(); updateTapDebug(null, "已重置"); } }
+      const dx = event.clientX - p.lastX, dy = event.clientY - p.lastY, a = scaleTrackpadDelta(dx, dy);
+      p.lastX = event.clientX; p.lastY = event.clientY; p.lastAt = event.timeStamp;
+      if (activeTrackpadPointers.size >= 2) { const ax = getTwoFingerScrollAxis(); queueMouseScroll(ax === "horizontal" ? -dx * TRACKPAD_SCROLL_SCALE : 0, ax === "vertical" ? dy * TRACKPAD_SCROLL_SCALE : 0); }
+      else if (activeTrackpadPointers.size === 1 && tapPointerCount === 1) queueMouseMove(a.dx, a.dy);
     });
     trackpad.addEventListener("pointerup", (event) => {
       activeTrackpadPointers.delete(event.pointerId);
       if (activeTrackpadPointers.size === 0) {
-        if (dragLocked) {
-          setDragLocked(false);
-          resetTrackpadTap();
-          return;
-        }
-        if (doubleTapPending) {
-          // Double-tap released without moving = double-click
-          doubleTapPending = false;
-          resetClickChain();
-          const count = tapPointerCount;
-          resetTrackpadTap();
-          if (count >= 2) {
-            updateTapDebug(doubleTapIntervalMs, "双指双击→右键");
-            syncMouseClick("right");
-          } else {
-            updateTapDebug(doubleTapIntervalMs, "双击");
-            syncMouseClick("left");
-            setTimeout(() => syncMouseClick("left"), 50);
-          }
-          return;
-        }
+        if (dragLocked) { setDragLocked(false); resetTrackpadTap(); return; }
+        if (doubleTapPending) { doubleTapPending = false; resetClickChain(); const c = tapPointerCount; resetTrackpadTap(); if (c >= 2) { updateTapDebug(doubleTapIntervalMs, "双指双击→右键"); syncMouseClick("right"); } else { updateTapDebug(doubleTapIntervalMs, "双击"); syncMouseClick("left"); setTimeout(() => syncMouseClick("left"), 50); } return; }
         finishTrackpadTap();
       }
     });
     trackpad.addEventListener("pointercancel", (event) => {
       activeTrackpadPointers.delete(event.pointerId);
-      if (activeTrackpadPointers.size === 0) {
-        if (dragLocked) {
-          setDragLocked(false);
-          resetTrackpadTap();
-          return;
-        }
-        if (doubleTapPending) {
-          doubleTapPending = false;
-          resetClickChain();
-          resetTrackpadTap();
-          updateTapDebug(null, "已取消");
-          return;
-        }
-        finishTrackpadTap(true);
-      }
+      if (activeTrackpadPointers.size === 0) { if (dragLocked) { setDragLocked(false); resetTrackpadTap(); return; } if (doubleTapPending) { doubleTapPending = false; resetClickChain(); resetTrackpadTap(); updateTapDebug(null, "已取消"); return; } finishTrackpadTap(true); }
     });
-    clearHistory.addEventListener("click", () => {
-      saveHistory([]);
-      renderHistory();
-      setStatus("历史已清空。");
-    });
-    clearButton.addEventListener("click", () => {
-      stopCountdown();
-      text.value = BACKSPACE_SENTINEL;
-      setStatus("已清空。");
-      focusComposer();
-    });
+    clearHistory.addEventListener("click", () => { saveHistory([]); renderHistory(); setStatus("历史已清空。"); });
 
-    loadSavedAutoSend();
-    loadSavedDelay();
-    renderAutoSendCopy();
-    loadTotalChars();
-    renderHistory();
-    connectRealtime();
-    ensureBackspaceSentinel();
-    primeMobileKeyboard();
+    loadSavedAutoSend(); loadSavedDelay(); renderAutoSendCopy(); loadSavedEnterBehavior();
+    loadTotalChars(); renderHistory(); connectRealtime();
+    ensureBackspaceSentinel(); primeMobileKeyboard();
     window.addEventListener("pageshow", primeMobileKeyboard);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") {
-        connectRealtime();
-        primeMobileKeyboard();
-      }
-    });
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { connectRealtime(); primeMobileKeyboard(); } });
     document.addEventListener("pointerdown", focusComposerOnFirstTouch);
     document.addEventListener("touchstart", focusComposerOnFirstTouch);
   </script>
