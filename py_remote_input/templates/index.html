@@ -515,7 +515,7 @@
     let tapMoved = false;
     const TAP_MAX_MS = 220;
     const TAP_MAX_MOVE = 8;
-    const DOUBLE_TAP_MAX_MS = 180;
+    const DOUBLE_TAP_MAX_MS = 380;
     const TRACKPAD_SPEED = 1.5;
     const TRACKPAD_SCROLL_SCALE = 6;
     let lastClickDownAt = 0;
@@ -663,13 +663,13 @@
       closeSnippetModal();
       if (snippet.text) {
         setComposerText(snippet.text);
-        setStatus("已填入快捷指令。");
+        sendText({ source: "snippet" });
       } else {
         stopCountdown();
         text.value = BACKSPACE_SENTINEL;
         setStatus("已清空。");
+        focusComposer();
       }
-      focusComposer();
     }
 
     async function deleteSnippet(id) {
