@@ -202,6 +202,45 @@
       text-align: center;
       pointer-events: none;
     }
+    .orientationIndicator {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.82);
+      border: 2px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      transition: border-color 0.3s;
+    }
+    .orientationIndicator.active {
+      border-color: var(--accent);
+    }
+    .oiLine {
+      width: 2px;
+      height: 22px;
+      background: var(--line);
+      border-radius: 1px;
+      transition: background 0.3s, transform 0.15s;
+    }
+    .orientationIndicator.active .oiLine {
+      background: var(--accent);
+    }
+    .oiAngle {
+      display: none;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-top: -2px;
+    }
+    .orientationIndicator.active .oiAngle {
+      display: block;
+    }
     .tapDebug {
       display: none;
       min-height: 20px;
@@ -255,6 +294,31 @@
     .historyMeta { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .statusbar { padding: 12px 14px; color: var(--muted); font-size: 14px; min-height: 48px; }
     .statusbar.error { color: var(--danger); }
+
+    /* ---- 触控板全屏模式 ---- */
+    .shell.trackpadMode {
+      grid-template-rows: 1fr auto;
+      min-height: calc(100vh - 32px);
+    }
+    .shell.trackpadMode .historyPanel {
+      display: none;
+    }
+    .shell.trackpadMode .composer {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .shell.trackpadMode .touchpadPanel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .shell.trackpadMode .trackpad {
+      flex: 1;
+      aspect-ratio: auto;
+      min-height: 0;
+    }
 
     /* ---- 快捷指令弹窗 ---- */
     .snippetOverlay {
@@ -425,6 +489,10 @@
             <span>双指竖放：左右滚动</span>
             <span>双击按住：拖拽</span>
           </div>
+          <div id="orientationIndicator" class="orientationIndicator">
+            <div class="oiLine"></div>
+            <span class="oiAngle"></span>
+          </div>
         </div>
         <div id="tapDebug" class="tapDebug">双击间隔：-- ms</div>
         <div class="mouseActions">
@@ -474,12 +542,16 @@
     const REALTIME_PATH = "/ws";
     const HISTORY_LIMIT = 30;
     const BACKSPACE_SENTINEL = "​";
+    const shell = document.querySelector(".shell");
     const text = document.getElementById("text");
     const textPanel = document.getElementById("textPanel");
     const touchpadPanel = document.getElementById("touchpadPanel");
     const modeToggle = document.getElementById("modeToggle");
     const trackpad = document.getElementById("trackpad");
     const tapDebug = document.getElementById("tapDebug");
+    const orientationIndicator = document.getElementById("orientationIndicator");
+    const oiLine = orientationIndicator.querySelector(".oiLine");
+    const oiAngle = orientationIndicator.querySelector(".oiAngle");
     const autoSend = document.getElementById("autoSend");
     const delaySeconds = document.getElementById("delaySeconds");
     const autoSendPrefix = document.getElementById("autoSendPrefix");
@@ -525,6 +597,9 @@
     let dragLocked = false;
     let doubleTapPending = false;
     let doubleTapIntervalMs = null;
+    let orientationGamma = 0;
+    let orientationBeta = 0;
+    let orientationActive = false;
     let pendingMouseDx = 0;
     let pendingMouseDy = 0;
     let pendingScrollDx = 0;
@@ -594,8 +669,9 @@
       textPanel.hidden = mouseMode;
       touchpadPanel.hidden = !mouseMode;
       modeToggle.textContent = mouseMode ? "输入" : "触控板";
+      shell.classList.toggle("trackpadMode", mouseMode);
       stopCountdown();
-      if (mouseMode) { text.blur(); setStatus("触控板模式。"); }
+      if (mouseMode) { text.blur(); setStatus("触控板模式。"); requestOrientationPermission(); }
       else { if (dragLocked) setDragLocked(false); resetClickChain(); setStatus("输入模式。"); focusComposer(); }
     }
 
@@ -891,6 +967,93 @@
     function scaleTrackpadDelta(dx, dy) { return { dx: dx * TRACKPAD_SPEED, dy: dy * TRACKPAD_SPEED }; }
     function getTwoFingerScrollAxis() { const p = Array.from(activeTrackpadPointers.values()); if (p.length < 2) return null; return Math.abs(p[1].lastX - p[0].lastX) >= Math.abs(p[1].lastY - p[0].lastY) ? "vertical" : "horizontal"; }
 
+    function handleDeviceOrientation(event) {
+      if (event.gamma !== null) {
+        orientationGamma = event.gamma;
+        orientationBeta = event.beta;
+        if (!orientationActive) {
+          orientationActive = true;
+          orientationIndicator.classList.add("active");
+          setStatus("方向校正已激活 (陀螺仪)");
+        }
+        oiLine.style.transform = "rotate(" + orientationGamma + "deg)";
+        oiAngle.textContent = Math.round(orientationGamma) + "°";
+      }
+    }
+
+    function handleDeviceMotion(event) {
+      var acc = event.accelerationIncludingGravity;
+      if (!acc || acc.x === null) return;
+      var x = acc.x, y = acc.y, z = acc.z;
+      if (z === 0 && x === 0) return;
+      var gamma = Math.atan2(x, Math.max(Math.abs(z), 0.01)) * 180 / Math.PI;
+      var beta = Math.atan2(y, Math.sqrt(x * x + z * z)) * 180 / Math.PI;
+      orientationGamma = gamma;
+      orientationBeta = beta;
+      if (!orientationActive) {
+        orientationActive = true;
+        orientationIndicator.classList.add("active");
+        setStatus("方向校正已激活 (加速度计)");
+      }
+      oiLine.style.transform = "rotate(" + gamma + "deg)";
+      oiAngle.textContent = Math.round(gamma) + "°";
+    }
+
+    function tryDeviceMotion() {
+      if (orientationActive) return;
+      if (typeof DeviceMotionEvent === "undefined" && !("DeviceMotionEvent" in window)) {
+        setStatus("运动传感器不可用 (HTTP环境受限)", true);
+        return;
+      }
+      if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+        DeviceMotionEvent.requestPermission()
+          .then(function (state) {
+            if (state === "granted") { window.addEventListener("devicemotion", handleDeviceMotion); setStatus("加速度计已授权，倾斜手机..."); }
+            else setStatus("运动传感器权限被拒", true);
+          })
+          .catch(function () { setStatus("运动传感器权限请求失败", true); });
+      } else {
+        window.addEventListener("devicemotion", handleDeviceMotion);
+        setStatus("加速度计已监听，倾斜手机试试...");
+        setTimeout(function () { if (!orientationActive) setStatus("未收到加速度计数据 (HTTP可能受限)", true); }, 3000);
+      }
+    }
+
+    function requestOrientationPermission() {
+      if (orientationActive) return;
+      var hasOrientationAPI = false;
+      try { hasOrientationAPI = typeof DeviceOrientationEvent !== "undefined"; } catch (e) {}
+      if (!hasOrientationAPI) { try { hasOrientationAPI = "DeviceOrientationEvent" in window; } catch (e) {} }
+
+      if (hasOrientationAPI && typeof DeviceOrientationEvent.requestPermission === "function") {
+        setStatus("正在请求陀螺仪权限...");
+        DeviceOrientationEvent.requestPermission()
+          .then(function (state) {
+            setStatus("陀螺仪权限: " + state + (state === "granted" ? " ✓" : ""));
+            if (state === "granted") { window.addEventListener("deviceorientation", handleDeviceOrientation); }
+            else tryDeviceMotion();
+          })
+          .catch(function () { setStatus("陀螺仪权限被拒，尝试加速度计..."); tryDeviceMotion(); });
+      } else if (hasOrientationAPI) {
+        window.addEventListener("deviceorientation", handleDeviceOrientation);
+        setStatus("陀螺仪已监听，倾斜手机...");
+        setTimeout(function () { if (!orientationActive) { setStatus("陀螺仪无数据，尝试加速度计...", true); tryDeviceMotion(); } }, 2000);
+      } else {
+        setStatus("陀螺仪不可用，尝试加速度计...");
+        tryDeviceMotion();
+      }
+    }
+
+    function applyOrientationCorrection(dx, dy) {
+      if (!orientationActive || Math.abs(orientationBeta) > 70) return { dx: dx, dy: dy };
+      var rad = -orientationGamma * Math.PI / 180;
+      var cos = Math.cos(rad), sin = Math.sin(rad);
+      return {
+        dx: dx * cos - dy * sin,
+        dy: dx * sin + dy * cos
+      };
+    }
+
     async function syncMouseMove(dx, dy) { try { await sendRealtime({ type: "mouseMove", dx, dy }, () => postJson("/api/mouse/move", { dx, dy })); } catch (e) { setStatus(e.message || "鼠标移动失败", true); } }
     async function syncMouseScroll(dx, dy) { try { await sendRealtime({ type: "mouseScroll", dx, dy }, () => postJson("/api/mouse/scroll", { dx, dy })); } catch (e) { setStatus(e.message || "鼠标滚轮失败", true); } }
     async function syncMouseClick(button) { try { await sendRealtime({ type: "mouseClick", button }, () => postJson("/api/mouse/click", { button })); } catch (e) { setStatus(e.message || "鼠标点击失败", true); } }
@@ -967,9 +1130,11 @@
     trackpad.addEventListener("pointermove", (event) => {
       const p = activeTrackpadPointers.get(event.pointerId); if (!p) return; event.preventDefault();
       if (Math.hypot(event.clientX - p.startX, event.clientY - p.startY) > TAP_MAX_MOVE) { tapMoved = true; if (doubleTapPending) { doubleTapPending = false; tapStartedDrag = true; updateTapDebug(doubleTapIntervalMs, "已触发拖拽"); setDragLocked(true); } if (!dragLocked) { resetClickChain(); updateTapDebug(null, "已重置"); } }
-      const dx = event.clientX - p.lastX, dy = event.clientY - p.lastY, a = scaleTrackpadDelta(dx, dy);
+      const rawDx = event.clientX - p.lastX, rawDy = event.clientY - p.lastY;
+      const corrected = applyOrientationCorrection(rawDx, rawDy);
+      const a = scaleTrackpadDelta(corrected.dx, corrected.dy);
       p.lastX = event.clientX; p.lastY = event.clientY; p.lastAt = event.timeStamp;
-      if (activeTrackpadPointers.size >= 2) { const ax = getTwoFingerScrollAxis(); queueMouseScroll(ax === "horizontal" ? -dx * TRACKPAD_SCROLL_SCALE : 0, ax === "vertical" ? dy * TRACKPAD_SCROLL_SCALE : 0); }
+      if (activeTrackpadPointers.size >= 2) { const ax = getTwoFingerScrollAxis(); queueMouseScroll(ax === "horizontal" ? -corrected.dx * TRACKPAD_SCROLL_SCALE : 0, ax === "vertical" ? corrected.dy * TRACKPAD_SCROLL_SCALE : 0); }
       else if (activeTrackpadPointers.size === 1 && tapPointerCount === 1) queueMouseMove(a.dx, a.dy);
     });
     trackpad.addEventListener("pointerup", (event) => {
