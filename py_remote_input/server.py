@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -9,6 +9,7 @@ import socket
 from urllib.parse import urlparse
 
 from py_remote_input.logger import Logger
+from py_remote_input.snippets_store import SnippetsStore
 from py_remote_input.stats import TextStatsStore, count_text_history_chars
 from py_remote_input.typer import click_mouse, mouse_button, move_mouse, press_key, scroll_mouse, type_text
 from py_remote_input.web import handle_realtime_message, handle_request
@@ -106,7 +107,7 @@ def serve_websocket_messages(
             return
 
 
-def build_handler(logger: Logger, record_history, text_stats):
+def build_handler(logger: Logger, record_history, text_stats, snippets_store=None):
     class RequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
@@ -159,6 +160,7 @@ def build_handler(logger: Logger, record_history, text_stats):
                 press_key=press_key,
                 record_history=record_history,
                 text_stats=text_stats,
+                snippets_store=snippets_store,
                 move_mouse=move_mouse,
                 scroll_mouse=scroll_mouse,
                 click_mouse=click_mouse,
@@ -178,7 +180,8 @@ def serve() -> None:
     log_dir = Path.cwd() / "logs"
     logger = Logger(log_dir / "server.log")
     record_history, text_stats = build_history_recorder(log_dir / "input-history.log", log_dir / "stats.json")
-    server = ThreadingHTTPServer(("0.0.0.0", port), build_handler(logger, record_history, text_stats))
+    snippets_store = SnippetsStore(log_dir / "snippets.json")
+    server = ThreadingHTTPServer(("0.0.0.0", port), build_handler(logger, record_history, text_stats, snippets_store))
 
     logger.info(f"Remote input server is running on port {port}.")
     logger.info("Open one of these addresses on your phone:")

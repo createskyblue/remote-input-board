@@ -470,7 +470,6 @@
     const HISTORY_STORAGE_KEY = "remoteInput.history";
     const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
     const ENTER_BEHAVIOR_STORAGE_KEY = "remoteInput.enterNewlineMode";
-    const SNIPPETS_STORAGE_KEY = "remoteInput.snippets";
     const REALTIME_PATH = "/ws";
     const HISTORY_LIMIT = 30;
     const BACKSPACE_SENTINEL = "​";
@@ -602,22 +601,34 @@
     // ---- 快捷指令 ----
     function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
-    function loadSnippets() {
+    let snippetsCache = null;
+
+    async function loadSnippets() {
       try {
-        const raw = window.localStorage.getItem(SNIPPETS_STORAGE_KEY);
-        const arr = raw ? JSON.parse(raw) : null;
-        if (Array.isArray(arr)) return arr;
+        const result = await fetchJson("/api/snippets");
+        if (result.ok && Array.isArray(result.snippets)) {
+          snippetsCache = result.snippets;
+          return result.snippets;
+        }
       } catch {}
-      window.localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(DEFAULT_SNIPPETS));
+      if (snippetsCache) return snippetsCache;
       return DEFAULT_SNIPPETS.map(s => ({ ...s }));
     }
 
-    function saveSnippets(snippets) {
-      window.localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(snippets));
+    async function saveSnippets(snippets) {
+      snippetsCache = snippets;
+      try {
+        const result = await fetchJson("/api/snippets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ snippets }),
+        });
+        if (result.ok) snippetsCache = result.snippets;
+      } catch {}
     }
 
-    function renderSnippetList() {
-      const snippets = loadSnippets();
+    async function renderSnippetList() {
+      const snippets = await loadSnippets();
       snippetList.innerHTML = "";
       if (snippets.length === 0) {
         snippetList.innerHTML = '<div class="snippetEmpty">暂无快捷指令，在下方添加。</div>';
@@ -648,7 +659,7 @@
       return div.innerHTML;
     }
 
-    function applySnippet(snippet) {
+    async function applySnippet(snippet) {
       closeSnippetModal();
       if (snippet.text) {
         setComposerText(snippet.text);
@@ -661,10 +672,10 @@
       focusComposer();
     }
 
-    function deleteSnippet(id) {
+    async function deleteSnippet(id) {
       if (!window.confirm("确定要删除这条快捷指令吗？")) return;
-      const snippets = loadSnippets().filter(s => s.id !== id);
-      saveSnippets(snippets);
+      const snippets = (await loadSnippets()).filter(s => s.id !== id);
+      await saveSnippets(snippets);
       renderSnippetList();
       setStatus("快捷指令已删除。");
     }
@@ -689,16 +700,16 @@
       snippetTextInput.value = "";
     }
 
-    function saveSnippetForm() {
+    async function saveSnippetForm() {
       const textVal = snippetTextInput.value;
-      const snippets = loadSnippets();
+      const snippets = await loadSnippets();
       if (editingSnippetId) {
         const idx = snippets.findIndex(s => s.id === editingSnippetId);
         if (idx !== -1) snippets[idx].text = textVal;
       } else {
         snippets.push({ id: genId(), text: textVal });
       }
-      saveSnippets(snippets);
+      await saveSnippets(snippets);
       cancelSnippetForm();
       renderSnippetList();
       setStatus(editingSnippetId ? "快捷指令已更新。" : "快捷指令已添加。");

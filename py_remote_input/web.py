@@ -128,6 +128,7 @@ def handle_request(
     press_key=None,
     record_history=None,
     text_stats=None,
+    snippets_store=None,
     move_mouse=None,
     scroll_mouse=None,
     click_mouse=None,
@@ -280,6 +281,22 @@ def handle_request(
         except Exception as exc:  # noqa: BLE001
             logger.error("Mouse button request failed.", {"button": button, "action": action, "error": str(exc)})
             return json_response(500, {"error": str(exc)})
+
+    if method == "GET" and path == "/api/snippets":
+        snippets = snippets_store.get_all() if snippets_store is not None else []
+        return json_response(200, {"ok": True, "snippets": snippets})
+
+    if method == "POST" and path == "/api/snippets":
+        payload = _read_json_body(body, logger)
+        if payload is None:
+            return json_response(400, {"error": "Invalid JSON body."})
+        incoming = payload.get("snippets")
+        if not isinstance(incoming, list):
+            return json_response(400, {"error": "Expected a snippets array."})
+        if snippets_store is None:
+            return json_response(500, {"error": "Snippets store is not configured."})
+        snippets = snippets_store.save_all(incoming)
+        return json_response(200, {"ok": True, "snippets": snippets})
 
     return json_response(404, {"error": "Not found."})
 
