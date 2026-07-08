@@ -410,7 +410,7 @@
         <div class="actions textActions">
           <button id="keyEscape" class="keyButton escapeAction" type="button">ESC</button>
           <button id="send" class="sendButton primaryAction" type="button" aria-label="发送或回车">发送<span class="enterIcon" aria-hidden="true">⏎</span></button>
-          <button id="snippets" class="keyButton snippetsAction" type="button">⚡ 快捷指令</button>
+          <button id="snippets" class="keyButton snippetsAction" type="button">快捷指令</button>
         </div>
       </div>
 
@@ -763,6 +763,7 @@
       updateEnterBehaviorUI();
       saveEnterBehavior();
       setStatus(enterNewlineMode ? "回车键将插入换行。" : "回车键将发送文本。");
+      focusComposer();
     }
 
     enterBehaviorToggle.addEventListener("click", toggleEnterBehavior);
@@ -910,7 +911,6 @@
     function syncEnter(event) { event.preventDefault(); syncKey("enter"); }
 
     function sendOrEnter() {
-      if (enterNewlineMode) { syncKey("enter"); return; }
       getComposerText().trim() ? sendText({ source: "manual" }) : syncKey("enter");
     }
 
