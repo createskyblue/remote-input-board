@@ -460,6 +460,36 @@
       border-color: var(--accent);
       background: rgba(15, 123, 95, 0.06);
     }
+    .serverList { display: grid; gap: 8px; }
+    .serverRow {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfdfc;
+      cursor: pointer;
+    }
+    .serverRow input[type="radio"] { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+    .serverRow:has(input:checked) { border-color: var(--accent); background: rgba(15, 123, 95, 0.06); }
+    .serverInfo { display: grid; gap: 2px; min-width: 0; }
+    .serverName { font-weight: 800; font-size: 14px; color: var(--ink); }
+    .serverHost { font-size: 12px; color: var(--muted); word-break: break-all; }
+    .serverAddForm { display: grid; gap: 8px; }
+    .serverAddForm input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 15px;
+      outline: none;
+      background: #fbfdfc;
+    }
+    .serverAddForm input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15, 123, 95, 0.1); }
+    .serverAddButton { min-height: 40px; font-size: 14px; justify-self: start; }
 
     @media (max-width: 520px) {
       body { padding: 10px; }
@@ -568,6 +598,19 @@
             <span class="settingsOptionDesc">写入剪贴板后 Ctrl+V 粘贴，适合终端、游戏等敲击失灵的场景。</span>
           </label>
         </div>
+        <div class="settingsGroup">
+          <div class="settingsLabel">服务器（一个手机控多台电脑）</div>
+          <div id="serverList" class="serverList"></div>
+          <div id="serverAddForm" class="serverAddForm" hidden>
+            <input id="serverNameInput" placeholder="名称，如：客厅电脑">
+            <input id="serverHostInput" placeholder="地址 IP:端口，如 192.168.1.6:3210">
+            <div class="snippetFormActions">
+              <button id="serverAddCancel" class="secondary" type="button">取消</button>
+              <button id="serverAddSave" type="button">添加</button>
+            </div>
+          </div>
+          <button id="serverAddButton" class="secondary serverAddButton" type="button">+ 添加服务器</button>
+        </div>
       </div>
     </div>
   </div>
@@ -597,6 +640,8 @@
     const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
     const ENTER_BEHAVIOR_STORAGE_KEY = "remoteInput.enterNewlineMode";
     const SETTINGS_STORAGE_KEY = "remoteInput.settings";
+    const SERVERS_STORAGE_KEY = "remoteInput.servers";
+    const SNIPPETS_STORAGE_KEY = "remoteInput.snippets";
     const REALTIME_PATH = "/ws";
     const HISTORY_LIMIT = 30;
     const BACKSPACE_SENTINEL = "​";
@@ -638,6 +683,13 @@
     const settingsOverlay = document.getElementById("settingsOverlay");
     const settingsClose = document.getElementById("settingsClose");
     const inputMethodRadios = document.querySelectorAll('input[name="inputMethod"]');
+    const serverList = document.getElementById("serverList");
+    const serverAddForm = document.getElementById("serverAddForm");
+    const serverAddButton = document.getElementById("serverAddButton");
+    const serverAddCancel = document.getElementById("serverAddCancel");
+    const serverAddSave = document.getElementById("serverAddSave");
+    const serverNameInput = document.getElementById("serverNameInput");
+    const serverHostInput = document.getElementById("serverHostInput");
 
     let pendingTimer = null;
     let countdownStartedAt = 0;
@@ -673,6 +725,8 @@
     let realtimeRequestSeq = 0;
     const realtimePending = new Map();
     let settings = { inputMethod: "type" };
+    let servers = [];
+    let activeServerId = "";
     const canUseBeforeInput = "onbeforeinput" in text;
     let composerTextBeforeInput = "";
     let enterNewlineMode = false;
@@ -745,28 +799,42 @@
 
     let snippetsCache = null;
 
-    async function loadSnippets() {
+    // 快捷指令存在手机本地，切服务器也随身走；首次打开时从当前服务器导入一次，避免旧数据丢失
+    function loadLocalSnippets() {
       try {
-        const result = await fetchJson("/api/snippets");
-        if (result.ok && Array.isArray(result.snippets)) {
-          snippetsCache = result.snippets;
-          return result.snippets;
+        const raw = window.localStorage.getItem(SNIPPETS_STORAGE_KEY);
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (Array.isArray(p)) return p.filter(s => s && typeof s.id === "string");
         }
       } catch {}
-      if (snippetsCache) return snippetsCache;
-      return DEFAULT_SNIPPETS.map(s => ({ ...s }));
+      return null;
     }
 
-    async function saveSnippets(snippets) {
-      snippetsCache = snippets;
+    function saveLocalSnippets(snippets) {
+      window.localStorage.setItem(SNIPPETS_STORAGE_KEY, JSON.stringify(snippets));
+    }
+
+    async function loadSnippets() {
+      const local = loadLocalSnippets();
+      if (local) { snippetsCache = local; return local; }
       try {
-        const result = await fetchJson("/api/snippets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ snippets }),
-        });
-        if (result.ok) snippetsCache = result.snippets;
+        if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+          const result = await sendRealtimeRequest({ type: "getSnippets" });
+          if (Array.isArray(result.snippets)) { saveLocalSnippets(result.snippets); snippetsCache = result.snippets; return result.snippets; }
+        }
+        const result = await fetchJson("/api/snippets");
+        if (result.ok && Array.isArray(result.snippets)) { saveLocalSnippets(result.snippets); snippetsCache = result.snippets; return result.snippets; }
       } catch {}
+      const defaults = DEFAULT_SNIPPETS.map(s => ({ ...s }));
+      saveLocalSnippets(defaults);
+      snippetsCache = defaults;
+      return defaults;
+    }
+
+    function saveSnippets(snippets) {
+      snippetsCache = snippets;
+      saveLocalSnippets(snippets);
     }
 
     async function renderSnippetList() {
@@ -857,10 +925,10 @@
       setStatus(editingSnippetId ? "快捷指令已更新。" : "快捷指令已添加。");
     }
 
-    function openSnippetModal() {
+    async function openSnippetModal() {
       snippetOverlay.hidden = false;
       cancelSnippetForm();
-      renderSnippetList();
+      await renderSnippetList();
       snippetList.scrollTop = 0;
     }
 
@@ -912,11 +980,13 @@
 
     function openSettingsModal() {
       for (const r of inputMethodRadios) r.checked = r.value === settings.inputMethod;
+      renderServerList();
       settingsOverlay.hidden = false;
       setStatus("输入方式：" + (settings.inputMethod === "paste" ? "剪贴板粘贴" : "键盘输入") + "。");
     }
 
     function closeSettingsModal() {
+      closeServerAdd();
       settingsOverlay.hidden = true;
     }
 
@@ -926,6 +996,112 @@
     for (const r of inputMethodRadios) {
       r.addEventListener("change", () => { if (r.checked) saveSettings({ inputMethod: r.value }); });
     }
+
+    // ---- 多服务器切换（存在手机本地，一个面板控制多台电脑） ----
+    function getActiveServerHost() {
+      const s = servers.find(x => x.id === activeServerId);
+      return s ? s.host : window.location.host;
+    }
+
+    function loadSavedServers() {
+      try {
+        const raw = window.localStorage.getItem(SERVERS_STORAGE_KEY);
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        if (Array.isArray(p.list)) servers = p.list.filter(s => s && typeof s.id === "string" && typeof s.host === "string");
+        if (typeof p.activeId === "string") activeServerId = p.activeId;
+      } catch {}
+    }
+
+    function saveServers() {
+      window.localStorage.setItem(SERVERS_STORAGE_KEY, JSON.stringify({ list: servers, activeId: activeServerId }));
+    }
+
+    function renderServerList() {
+      serverList.innerHTML = "";
+      serverList.appendChild(makeServerRow({ id: "", name: "当前电脑（本页）", host: window.location.host }));
+      for (const s of servers) serverList.appendChild(makeServerRow(s));
+    }
+
+    function makeServerRow(s) {
+      const row = document.createElement("label");
+      row.className = "serverRow";
+      const radio = document.createElement("input");
+      radio.type = "radio"; radio.name = "activeServer"; radio.value = s.id;
+      radio.checked = s.id === activeServerId;
+      radio.addEventListener("change", () => { if (radio.checked) selectServer(s.id); });
+      const info = document.createElement("span");
+      info.className = "serverInfo";
+      info.innerHTML = "<span class='serverName'>" + escapeHtml(s.name) + "</span><span class='serverHost'>" + escapeHtml(s.host) + "</span>";
+      row.appendChild(radio); row.appendChild(info);
+      if (s.id !== "") {
+        const del = document.createElement("button");
+        del.type = "button"; del.className = "snippetItemBtn danger"; del.textContent = "✕"; del.title = "删除";
+        del.addEventListener("click", (e) => { e.preventDefault(); removeServer(s.id); });
+        row.appendChild(del);
+      }
+      return row;
+    }
+
+    function selectServer(id) {
+      if (activeServerId === id) { renderServerList(); return; }
+      activeServerId = id;
+      saveServers();
+      renderServerList();
+      setStatus("已切换到服务器：" + getActiveServerHost() + "。");
+      applyActiveServer();
+    }
+
+    function applyActiveServer() {
+      if (realtimeSocket) { try { realtimeSocket.close(); } catch {} realtimeSocket = null; }
+      connectRealtime();
+      loadTotalChars();
+    }
+
+    function openServerAdd() {
+      serverAddForm.hidden = false;
+      serverAddButton.hidden = true;
+      serverNameInput.focus();
+    }
+
+    function closeServerAdd() {
+      serverAddForm.hidden = true;
+      serverAddButton.hidden = false;
+      serverNameInput.value = "";
+      serverHostInput.value = "";
+    }
+
+    function saveServerAdd() {
+      const name = serverNameInput.value.trim();
+      let host = serverHostInput.value.trim();
+      if (!host) { setStatus("请输入服务器地址", true); return; }
+      host = host.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").trim();
+      if (!host) { setStatus("服务器地址无效", true); return; }
+      if (!host.includes(":")) host = host + ":3210";
+      servers.push({ id: genId(), name: name || host, host });
+      saveServers();
+      closeServerAdd();
+      renderServerList();
+      setStatus("已添加服务器 " + host + "，点它即可切换。");
+    }
+
+    function removeServer(id) {
+      const wasActive = activeServerId === id;
+      servers = servers.filter(s => s.id !== id);
+      if (wasActive) {
+        activeServerId = "";
+        saveServers();
+        applyActiveServer();
+        setStatus("已删除当前服务器，已切回本页电脑。");
+      } else {
+        saveServers();
+      }
+      renderServerList();
+    }
+
+    serverAddButton.addEventListener("click", openServerAdd);
+    serverAddCancel.addEventListener("click", closeServerAdd);
+    serverAddSave.addEventListener("click", saveServerAdd);
 
     // ---- 回车行为切换 ----
     function loadSavedEnterBehavior() {
@@ -979,8 +1155,18 @@
     function updateTotalChars(count) { totalChars.textContent = count.toLocaleString("zh-CN"); }
 
     async function loadTotalChars() {
-      try { const result = await fetchJson("/api/stats"); const count = normalizeTotalChars(result.totalChars); window.localStorage.setItem(TOTAL_CHARS_STORAGE_KEY, count.toString()); updateTotalChars(count); }
-      catch { updateTotalChars(normalizeTotalChars(window.localStorage.getItem(TOTAL_CHARS_STORAGE_KEY))); }
+      try {
+        let count;
+        if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+          const result = await sendRealtimeRequest({ type: "getStats" });
+          count = normalizeTotalChars(result.totalChars);
+        } else {
+          const result = await fetchJson("/api/stats");
+          count = normalizeTotalChars(result.totalChars);
+        }
+        window.localStorage.setItem(TOTAL_CHARS_STORAGE_KEY, count.toString());
+        updateTotalChars(count);
+      } catch { updateTotalChars(normalizeTotalChars(window.localStorage.getItem(TOTAL_CHARS_STORAGE_KEY))); }
     }
 
     function setTotalChars(count) {
@@ -1051,7 +1237,15 @@
       pendingTimer = setTimeout(() => sendText({ source: "auto" }), d);
     }
 
-    function getRealtimeUrl() { return (window.location.protocol === "https:" ? "wss:" : "ws:") + "//" + window.location.host + REALTIME_PATH; }
+    function getApiBase() {
+      const host = getActiveServerHost();
+      return host === window.location.host ? "" : window.location.protocol + "//" + host;
+    }
+
+    function getRealtimeUrl() {
+      const host = getActiveServerHost();
+      return (window.location.protocol === "https:" ? "wss:" : "ws:") + "//" + host + REALTIME_PATH;
+    }
 
     function scheduleRealtimeReconnect() { if (realtimeReconnectTimer !== null) return; realtimeReconnectTimer = window.setTimeout(() => { realtimeReconnectTimer = null; connectRealtime(); }, 900); }
 
@@ -1099,9 +1293,9 @@
       connectRealtime(); return fallback();
     }
 
-    async function fetchJson(url, options = {}) { const r = await fetch(url, options); const j = await r.json(); if (!r.ok) throw new Error(j.error || "请求失败"); return j; }
+    async function fetchJson(url, options = {}) { const r = await fetch(getApiBase() + url, options); const j = await r.json(); if (!r.ok) throw new Error(j.error || "请求失败"); return j; }
 
-    async function postJson(url, payload) { const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const j = await r.json(); if (!r.ok) throw new Error(j.error || "请求失败"); return j; }
+    async function postJson(url, payload) { const r = await fetch(getApiBase() + url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const j = await r.json(); if (!r.ok) throw new Error(j.error || "请求失败"); return j; }
 
     function flushMouseMove() { mouseFrame = null; const dx = Math.round(pendingMouseDx), dy = Math.round(pendingMouseDy); pendingMouseDx -= dx; pendingMouseDy -= dy; if (dx || dy) syncMouseMove(dx, dy); }
     function queueMouseMove(dx, dy) { pendingMouseDx += dx; pendingMouseDy += dy; if (mouseFrame === null) mouseFrame = window.requestAnimationFrame(flushMouseMove); }
@@ -1303,7 +1497,7 @@
     });
     clearHistory.addEventListener("click", () => { saveHistory([]); renderHistory(); setStatus("历史已清空。"); });
 
-    loadSavedAutoSend(); loadSavedDelay(); renderAutoSendCopy(); loadSavedEnterBehavior(); loadSavedSettings();
+    loadSavedAutoSend(); loadSavedDelay(); renderAutoSendCopy(); loadSavedEnterBehavior(); loadSavedSettings(); loadSavedServers();
     loadTotalChars(); renderHistory(); connectRealtime();
     ensureBackspaceSentinel(); primeMobileKeyboard();
     window.addEventListener("pageshow", primeMobileKeyboard);

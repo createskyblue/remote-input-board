@@ -72,6 +72,7 @@ def serve_websocket_messages(
     record_history=None,
     text_stats=None,
     settings_store=None,
+    snippets_store=None,
 ) -> None:
     while True:
         try:
@@ -110,11 +111,12 @@ def serve_websocket_messages(
                 record_history=record_history,
                 text_stats=text_stats,
                 settings_store=settings_store,
+                snippets_store=snippets_store,
             )
             request_id = payload.get("id")
             if isinstance(request_id, (str, int)):
                 result["id"] = request_id
-            if not result.get("ok") or result.get("type") in {"pong", "settings", "type", "paste"}:
+            if not result.get("ok") or result.get("type") in {"pong", "settings", "type", "paste", "stats", "snippets"}:
                 _write_websocket_frame(writer, 0x1, json.dumps(result, ensure_ascii=False).encode("utf-8"))
         except OSError as exc:
             logger.warn("WebSocket connection closed.", {"error": str(exc)})
@@ -133,8 +135,18 @@ def build_handler(logger: Logger, record_history, text_stats, snippets_store=Non
         def do_POST(self) -> None:  # noqa: N802
             self._handle()
 
+        def do_OPTIONS(self) -> None:  # noqa: N802
+            self.send_response(204)
+            self._send_cors_headers()
+            self.end_headers()
+
         def log_message(self, format: str, *args) -> None:  # noqa: A003
             return
+
+        def _send_cors_headers(self) -> None:
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
         def _handle_websocket(self) -> None:
             websocket_key = self.headers.get("Sec-WebSocket-Key", "")
@@ -163,6 +175,7 @@ def build_handler(logger: Logger, record_history, text_stats, snippets_store=Non
                 record_history=record_history,
                 text_stats=text_stats,
                 settings_store=settings_store,
+                snippets_store=snippets_store,
             )
             logger.info("WebSocket disconnected.")
 
@@ -188,6 +201,7 @@ def build_handler(logger: Logger, record_history, text_stats, snippets_store=Non
             self.send_response(response.status_code)
             self.send_header("Content-Type", response.content_type)
             self.send_header("Content-Length", str(len(response.body)))
+            self._send_cors_headers()
             self.end_headers()
             self.wfile.write(response.body)
 

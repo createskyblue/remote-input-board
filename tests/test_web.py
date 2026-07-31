@@ -20,6 +20,17 @@ class FakeLogger:
         self.messages.append(("error", message, meta))
 
 
+class FakeTextStats:
+    def __init__(self, total=0):
+        self.total = total
+
+    def get_total_chars(self):
+        return self.total
+
+    def add_text(self, _text):
+        return self.total
+
+
 class WebTests(unittest.TestCase):
     def test_serves_mobile_page_with_controls(self):
         response = handle_request("GET", "/", b"", lambda _text: {}, FakeLogger())
@@ -176,6 +187,16 @@ class WebTests(unittest.TestCase):
         self.assertIn('postJson("/api/" + messageType, { text: payloadText })', html)
         self.assertIn("剪贴板粘贴", html)
         self.assertIn("键盘输入", html)
+        self.assertIn("serverList", html)
+        self.assertIn("getActiveServerHost", html)
+        self.assertIn("loadSavedServers", html)
+        self.assertIn("SERVERS_STORAGE_KEY", html)
+        self.assertIn("selectServer", html)
+        self.assertIn("getSnippets", html)
+        self.assertIn("getStats", html)
+        self.assertIn("SNIPPETS_STORAGE_KEY", html)
+        self.assertIn("loadLocalSnippets", html)
+        self.assertIn("saveLocalSnippets", html)
 
     def test_trackpad_two_finger_scroll_uses_same_slower_scale_for_both_axes(self):
         template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
@@ -624,6 +645,68 @@ class WebTests(unittest.TestCase):
             self.assertEqual(result["ok"], False)
             self.assertIn("Invalid inputMethod", result["error"])
             self.assertEqual(store.get_all(), {"inputMethod": "type"})
+
+    def test_realtime_get_stats_returns_total_chars(self):
+        result = handle_realtime_message(
+            {"type": "getStats"},
+            FakeLogger(),
+            text_stats=FakeTextStats(12345),
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(result["type"], "stats")
+        self.assertEqual(result["totalChars"], 12345)
+
+    def test_realtime_get_snippets_returns_snippets(self):
+        class FakeSnippets:
+            def get_all(self):
+                return [{"id": "1", "text": "hi"}]
+
+            def save_all(self, incoming):
+                return incoming
+
+        result = handle_realtime_message({"type": "getSnippets"}, FakeLogger(), snippets_store=FakeSnippets())
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(result["type"], "snippets")
+        self.assertEqual(result["snippets"], [{"id": "1", "text": "hi"}])
+
+    def test_realtime_set_snippets_saves(self):
+        saved = []
+
+        class FakeSnippets:
+            def get_all(self):
+                return []
+
+            def save_all(self, incoming):
+                saved.append(incoming)
+                return incoming
+
+        result = handle_realtime_message(
+            {"type": "setSnippets", "snippets": [{"id": "x", "text": "abc"}]},
+            FakeLogger(),
+            snippets_store=FakeSnippets(),
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(saved, [[{"id": "x", "text": "abc"}]])
+
+    def test_realtime_set_snippets_rejects_non_array(self):
+        class FakeSnippets:
+            def get_all(self):
+                return []
+
+            def save_all(self, incoming):
+                return incoming
+
+        result = handle_realtime_message(
+            {"type": "setSnippets", "snippets": "nope"},
+            FakeLogger(),
+            snippets_store=FakeSnippets(),
+        )
+
+        self.assertEqual(result["ok"], False)
+        self.assertIn("Expected a snippets array", result["error"])
 
 
 if __name__ == "__main__":

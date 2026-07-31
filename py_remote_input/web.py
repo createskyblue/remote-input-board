@@ -64,12 +64,31 @@ def handle_realtime_message(
     record_history=None,
     text_stats=None,
     settings_store=None,
+    snippets_store=None,
 ) -> dict:
     if not isinstance(payload, dict):
         return {"ok": False, "error": "Realtime message must be a JSON object."}
 
     message_type = payload.get("type")
     try:
+        if message_type == "getStats":
+            if text_stats is None:
+                return {"ok": False, "error": "Text stats are not configured."}
+            return {"ok": True, "type": "stats", "totalChars": text_stats.get_total_chars()}
+
+        if message_type == "getSnippets":
+            if snippets_store is None:
+                return {"ok": False, "error": "Snippets store is not configured."}
+            return {"ok": True, "type": "snippets", "snippets": snippets_store.get_all()}
+
+        if message_type == "setSnippets":
+            if snippets_store is None:
+                return {"ok": False, "error": "Snippets store is not configured."}
+            incoming = payload.get("snippets")
+            if not isinstance(incoming, list):
+                return {"ok": False, "error": "Expected a snippets array."}
+            return {"ok": True, "type": "snippets", "snippets": snippets_store.save_all(incoming)}
+
         if message_type == "getSettings":
             if settings_store is None:
                 return {"ok": False, "error": "Settings store is not configured."}
