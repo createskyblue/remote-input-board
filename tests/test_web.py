@@ -53,14 +53,14 @@ class WebTests(unittest.TestCase):
         self.assertIn(".trackpad { aspect-ratio: 1;", html)
         self.assertIn(".textSurface { min-height: 260px; }", html)
         self.assertIn(".actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }", html)
-        self.assertIn(".modePanel { display: grid; gap: 8px; }", html)
+        self.assertIn(".modePanel { display: grid; gap: 0; }", html)
         self.assertIn("TOTAL_CHARS_STORAGE_KEY", html)
         self.assertIn("remoteInput.totalChars", html)
         self.assertIn("totalChars", html)
         self.assertIn("累计字数", html)
         self.assertIn("updateTotalChars", html)
         self.assertIn('fetchJson("/api/stats")', html)
-        self.assertIn("setTotalChars(result.totalChars)", html)
+        self.assertIn("setTotalChars(r.totalChars)", html)
         self.assertNotIn("addTypedChars(payloadText)", html)
         self.assertIn("syncBackspace", html)
         self.assertIn("syncEnter", html)
@@ -99,20 +99,18 @@ class WebTests(unittest.TestCase):
         self.assertIn("TRACKPAD_SPEED", html)
         self.assertIn("const TRACKPAD_SPEED = 1.5;", html)
         self.assertIn("scaleTrackpadDelta", html)
-        self.assertIn("const adjusted = scaleTrackpadDelta(dx, dy);", html)
-        self.assertIn("queueMouseMove(adjusted.dx, adjusted.dy)", html)
+        self.assertIn("scaleTrackpadDelta(corrected.dx, corrected.dy)", html)
+        self.assertIn("queueMouseMove(a.dx, a.dy)", html)
         self.assertIn("getTwoFingerScrollAxis", html)
-        self.assertIn("const scrollAxis = getTwoFingerScrollAxis();", html)
-        self.assertIn('const scrollDx = scrollAxis === "horizontal" ? -dx * TRACKPAD_SCROLL_SCALE : 0;', html)
-        self.assertIn('const scrollDy = scrollAxis === "vertical" ? dy * TRACKPAD_SCROLL_SCALE : 0;', html)
-        self.assertIn("queueMouseScroll(scrollDx, scrollDy)", html)
+        self.assertIn("const ax = getTwoFingerScrollAxis();", html)
+        self.assertIn('queueMouseScroll(ax === "horizontal" ? -corrected.dx * TRACKPAD_SCROLL_SCALE : 0, ax === "vertical" ? corrected.dy * TRACKPAD_SCROLL_SCALE : 0)', html)
         self.assertNotIn("getTrackpadCentroid", html)
-        self.assertIn('sendRealtime(\n          { type: "mouseScroll", dx, dy }', html)
+        self.assertIn('sendRealtime({ type: "mouseScroll", dx, dy }', html)
         self.assertIn('postJson("/api/mouse/scroll", { dx, dy })', html)
         self.assertIn("lastAt", html)
         self.assertIn("dragLocked", html)
         self.assertIn("DOUBLE_TAP_MAX_MS", html)
-        self.assertIn("const DOUBLE_TAP_MAX_MS = 180;", html)
+        self.assertIn("const DOUBLE_TAP_MAX_MS = 380;", html)
         self.assertIn("lastClickDownAt", html)
         self.assertIn("tapStartedDrag", html)
         self.assertIn("startDragFromDoubleTap", html)
@@ -124,7 +122,7 @@ class WebTests(unittest.TestCase):
         self.assertIn("cancelPendingSingleTapClick", html)
         self.assertIn("pendingSingleTapTimer = window.setTimeout", html)
         self.assertIn("window.clearTimeout(pendingSingleTapTimer)", html)
-        self.assertIn("scheduleSingleTapClick(startedAt)", html)
+        self.assertIn("scheduleSingleTapClick(started)", html)
         self.assertIn("updateTapDebug(tapIntervalMs", html)
         self.assertIn("if (dragLocked) {", html)
         self.assertIn("setDragLocked(false);", html)
@@ -160,20 +158,31 @@ class WebTests(unittest.TestCase):
         self.assertIn('sendButton.addEventListener("pointerdown", keepComposerFocus)', html)
         self.assertIn("function keepComposerFocus(event)", html)
         self.assertIn("event.preventDefault();", html)
-        self.assertIn('setStatus("停止输入后 " + (autoSendDelay / 1000).toString() + " 秒自动发送。");', html)
-        self.assertIn("sendButton.disabled = false;\n        focusComposer();", html)
+        self.assertIn('setStatus("停止输入后 " + (d / 1000).toString() + " 秒自动发送。");', html)
+        self.assertIn("sendButton.disabled = false; focusComposer();", html)
         self.assertIn("applyHistoryItem", html)
         self.assertIn("confirmHistoryOverwrite", html)
         self.assertIn("要覆盖当前输入内容吗", html)
         self.assertNotIn('addHistoryItem({ kind: "key", key })', html)
         self.assertNotIn("已同步", html)
+        self.assertIn("settingsButton", html)
+        self.assertIn('name="inputMethod"', html)
+        self.assertIn('value="paste"', html)
+        self.assertIn("SETTINGS_STORAGE_KEY", html)
+        self.assertIn("sendRealtimeRequest", html)
+        self.assertIn('type: "getSettings"', html)
+        self.assertIn('type: "setSettings"', html)
+        self.assertIn('settings.inputMethod === "paste" ? "paste" : "type"', html)
+        self.assertIn('postJson("/api/" + messageType, { text: payloadText })', html)
+        self.assertIn("剪贴板粘贴", html)
+        self.assertIn("键盘输入", html)
 
     def test_trackpad_two_finger_scroll_uses_same_slower_scale_for_both_axes(self):
         template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
 
         self.assertIn("const TRACKPAD_SCROLL_SCALE = 6;", template)
-        self.assertIn('const scrollDx = scrollAxis === "horizontal" ? -dx * TRACKPAD_SCROLL_SCALE : 0;', template)
-        self.assertIn('const scrollDy = scrollAxis === "vertical" ? dy * TRACKPAD_SCROLL_SCALE : 0;', template)
+        self.assertIn("const ax = getTwoFingerScrollAxis();", template)
+        self.assertIn('queueMouseScroll(ax === "horizontal" ? -corrected.dx * TRACKPAD_SCROLL_SCALE : 0, ax === "vertical" ? corrected.dy * TRACKPAD_SCROLL_SCALE : 0)', template)
         self.assertNotIn("TRACKPAD_HORIZONTAL_SCROLL_SCALE", template)
         self.assertNotIn("TRACKPAD_VERTICAL_SCROLL_SCALE", template)
 
@@ -195,27 +204,27 @@ class WebTests(unittest.TestCase):
     def test_empty_composer_uses_invisible_sentinel_for_repeated_mobile_backspace(self):
         template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
 
-        self.assertIn('const BACKSPACE_SENTINEL = "\\u200B";', template)
+        self.assertIn('const BACKSPACE_SENTINEL = "​";', template)
         self.assertIn("function getComposerText()", template)
         self.assertIn("function ensureBackspaceSentinel()", template)
         self.assertIn("function restoreBackspaceSentinelAfterDelete(event)", template)
         self.assertIn("composerTextBeforeInput === \"\"", template)
         self.assertIn("!text.value.includes(BACKSPACE_SENTINEL)", template)
-        self.assertIn("syncBackspace();\n      }\n      ensureBackspaceSentinel();", template)
+        self.assertIn("syncBackspace();\n      ensureBackspaceSentinel();", template)
         self.assertIn("const payloadText = getComposerText();", template)
         self.assertIn("text.value = BACKSPACE_SENTINEL;", template)
 
-    def test_text_mode_actions_prioritize_escape_clear_and_send(self):
+    def test_text_mode_actions_prioritize_escape_snippets_and_send(self):
         template = resources.files(py_remote_input).joinpath("templates", "index.html").read_text(encoding="utf-8")
 
         text_panel = template.split('<div id="touchpadPanel"', 1)[0]
         self.assertIn('class="actions textActions"', text_panel)
         self.assertIn('id="keyEscape"', text_panel)
         self.assertIn('class="sendButton primaryAction"', text_panel)
-        self.assertIn('grid-template-areas: "escape send" "clear send";', template)
+        self.assertIn('grid-template-areas: "escape send" "snippets send";', template)
         self.assertIn(".primaryAction { grid-area: send;", template)
         self.assertIn(".escapeAction { grid-area: escape;", template)
-        self.assertIn(".clearAction { grid-area: clear;", template)
+        self.assertIn(".snippetsAction { grid-area: snippets;", template)
         self.assertIn('keyEscapeButton.addEventListener("click", () => syncKey("escape"))', template)
         self.assertNotIn('id="keyUp"', text_panel)
         self.assertNotIn('id="keyDown"', text_panel)
@@ -491,6 +500,130 @@ class WebTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("Unsupported key", response.body.decode("utf-8"))
+
+    def test_submits_text_to_paste(self):
+        calls = []
+
+        def paste_text(text):
+            calls.append(text)
+            return {"method": "clipboard-paste", "durationMs": 8, "windowTitle": "Notepad"}
+
+        response = handle_request(
+            "POST",
+            "/api/paste",
+            json.dumps({"text": "粘贴内容"}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+            paste_text=paste_text,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, ["粘贴内容"])
+        self.assertIn("clipboard-paste", response.body.decode("utf-8"))
+
+    def test_rejects_empty_paste_text(self):
+        response = handle_request(
+            "POST",
+            "/api/paste",
+            json.dumps({"text": "   "}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+            paste_text=lambda _text: {},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Text is required", response.body.decode("utf-8"))
+
+    def test_paste_unconfigured_returns_500(self):
+        response = handle_request(
+            "POST",
+            "/api/paste",
+            json.dumps({"text": "hello"}).encode("utf-8"),
+            lambda _text: {},
+            FakeLogger(),
+        )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("Paste input is not configured", response.body.decode("utf-8"))
+
+    def test_realtime_type_message_calls_typer_and_records_history(self):
+        calls = []
+        records = []
+
+        result = handle_realtime_message(
+            {"type": "type", "text": "你好"},
+            FakeLogger(),
+            type_text=lambda text: calls.append(text) or {"method": "sendinput-unicode", "durationMs": 12},
+            record_history=lambda item: records.append(item),
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(result["type"], "type")
+        self.assertEqual(calls, ["你好"])
+        self.assertEqual(records[0]["text"], "你好")
+
+    def test_realtime_paste_message_calls_paster(self):
+        calls = []
+
+        result = handle_realtime_message(
+            {"type": "paste", "text": "代码"},
+            FakeLogger(),
+            paste_text=lambda text: calls.append(text) or {"method": "clipboard-paste", "durationMs": 8},
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(result["type"], "paste")
+        self.assertEqual(calls, ["代码"])
+
+    def test_realtime_get_settings_returns_stored_settings(self):
+        import tempfile
+        from pathlib import Path
+
+        from py_remote_input.settings_store import SettingsStore
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = SettingsStore(Path(tmp) / "settings.json")
+            result = handle_realtime_message({"type": "getSettings"}, FakeLogger(), settings_store=store)
+
+            self.assertEqual(result["ok"], True)
+            self.assertEqual(result["type"], "settings")
+            self.assertEqual(result["settings"], {"inputMethod": "type"})
+
+    def test_realtime_set_settings_saves_and_returns(self):
+        import tempfile
+        from pathlib import Path
+
+        from py_remote_input.settings_store import SettingsStore
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = SettingsStore(Path(tmp) / "settings.json")
+            result = handle_realtime_message(
+                {"type": "setSettings", "settings": {"inputMethod": "paste"}},
+                FakeLogger(),
+                settings_store=store,
+            )
+
+            self.assertEqual(result["ok"], True)
+            self.assertEqual(result["settings"], {"inputMethod": "paste"})
+            self.assertEqual(store.get_all(), {"inputMethod": "paste"})
+
+    def test_realtime_set_settings_rejects_invalid_input_method(self):
+        import tempfile
+        from pathlib import Path
+
+        from py_remote_input.settings_store import SettingsStore
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = SettingsStore(Path(tmp) / "settings.json")
+            result = handle_realtime_message(
+                {"type": "setSettings", "settings": {"inputMethod": "weird"}},
+                FakeLogger(),
+                settings_store=store,
+            )
+
+            self.assertEqual(result["ok"], False)
+            self.assertIn("Invalid inputMethod", result["error"])
+            self.assertEqual(store.get_all(), {"inputMethod": "type"})
 
 
 if __name__ == "__main__":

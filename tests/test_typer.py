@@ -71,6 +71,16 @@ class TyperTests(unittest.TestCase):
         self.assertEqual(left_down[0].mi.dwFlags, typer.MOUSEEVENTF_LEFTDOWN)
         self.assertEqual(left_up[0].mi.dwFlags, typer.MOUSEEVENTF_LEFTUP)
 
+    def test_ctrl_v_inputs_press_control_v_in_order(self):
+        inputs = typer.build_ctrl_v_inputs()
+
+        self.assertEqual(len(inputs), 4)
+        self.assertEqual([i.ki.wVk for i in inputs], [typer.VK_CONTROL, typer.VK_V, typer.VK_V, typer.VK_CONTROL])
+        self.assertEqual(inputs[0].ki.dwFlags, 0)
+        self.assertEqual(inputs[1].ki.dwFlags, 0)
+        self.assertEqual(inputs[2].ki.dwFlags & typer.KEYEVENTF_KEYUP, typer.KEYEVENTF_KEYUP)
+        self.assertEqual(inputs[3].ki.dwFlags & typer.KEYEVENTF_KEYUP, typer.KEYEVENTF_KEYUP)
+
 
 if __name__ == "__main__":
     unittest.main()

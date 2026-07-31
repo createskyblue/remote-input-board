@@ -73,9 +73,10 @@ curl -s http://127.0.0.1:3210/
 | 文件 | 作用 |
 |------|------|
 | `py_remote_input/templates/index.html` | 前端页面（单文件） |
-| `py_remote_input/server.py` | HTTP 服务入口 |
-| `py_remote_input/web.py` | API 路由处理 |
-| `py_remote_input/typer.py` | 文字输入模拟 |
+| `py_remote_input/server.py` | HTTP + WebSocket 服务入口 |
+| `py_remote_input/web.py` | HTTP 路由 + WebSocket 消息处理 |
+| `py_remote_input/typer.py` | 文字输入模拟 / 剪贴板粘贴（Ctrl+V） |
+| `py_remote_input/settings_store.py` | 设置持久化（inputMethod 等） |
 | `py_remote_input/snippets_store.py` | 快捷指令服务端存储 |
 | `py_remote_input/stats.py` | 字数统计存储 |
 | `RemoteInputBoard.spec` | PyInstaller 构建配置 |
@@ -83,6 +84,7 @@ curl -s http://127.0.0.1:3210/
 | `dist/logs/` | 运行时日志和持久化数据 |
 | `dist/logs/stats.json` | 累计字数 |
 | `dist/logs/snippets.json` | 快捷指令（多端同步） |
+| `dist/logs/settings.json` | 设置（输入方式，多端同步） |
 | `dist/logs/input-history.log` | 输入历史 |
 | `dist/logs/server.log` | 服务日志 |
 

@@ -9,9 +9,10 @@ import socket
 from urllib.parse import urlparse
 
 from py_remote_input.logger import Logger
+from py_remote_input.settings_store import SettingsStore
 from py_remote_input.snippets_store import SnippetsStore
 from py_remote_input.stats import TextStatsStore, count_text_history_chars
-from py_remote_input.typer import click_mouse, mouse_button, move_mouse, press_key, scroll_mouse, type_text
+from py_remote_input.typer import click_mouse, mouse_button, move_mouse, paste_text, press_key, scroll_mouse, type_text
 from py_remote_input.web import handle_realtime_message, handle_request
 from py_remote_input.websocket import build_websocket_accept, encode_websocket_frame, read_websocket_frame
 
@@ -66,6 +67,11 @@ def serve_websocket_messages(
     scroll_mouse=None,
     click_mouse=None,
     mouse_button=None,
+    type_text=None,
+    paste_text=None,
+    record_history=None,
+    text_stats=None,
+    settings_store=None,
 ) -> None:
     while True:
         try:
@@ -99,15 +105,23 @@ def serve_websocket_messages(
                 scroll_mouse=scroll_mouse,
                 click_mouse=click_mouse,
                 mouse_button=mouse_button,
+                type_text=type_text,
+                paste_text=paste_text,
+                record_history=record_history,
+                text_stats=text_stats,
+                settings_store=settings_store,
             )
-            if not result.get("ok") or result.get("type") == "pong":
+            request_id = payload.get("id")
+            if isinstance(request_id, (str, int)):
+                result["id"] = request_id
+            if not result.get("ok") or result.get("type") in {"pong", "settings", "type", "paste"}:
                 _write_websocket_frame(writer, 0x1, json.dumps(result, ensure_ascii=False).encode("utf-8"))
         except OSError as exc:
             logger.warn("WebSocket connection closed.", {"error": str(exc)})
             return
 
 
-def build_handler(logger: Logger, record_history, text_stats, snippets_store=None):
+def build_handler(logger: Logger, record_history, text_stats, snippets_store=None, settings_store=None):
     class RequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
@@ -144,6 +158,11 @@ def build_handler(logger: Logger, record_history, text_stats, snippets_store=Non
                 scroll_mouse=scroll_mouse,
                 click_mouse=click_mouse,
                 mouse_button=mouse_button,
+                type_text=type_text,
+                paste_text=paste_text,
+                record_history=record_history,
+                text_stats=text_stats,
+                settings_store=settings_store,
             )
             logger.info("WebSocket disconnected.")
 
@@ -181,7 +200,10 @@ def serve() -> None:
     logger = Logger(log_dir / "server.log")
     record_history, text_stats = build_history_recorder(log_dir / "input-history.log", log_dir / "stats.json")
     snippets_store = SnippetsStore(log_dir / "snippets.json")
-    server = ThreadingHTTPServer(("0.0.0.0", port), build_handler(logger, record_history, text_stats, snippets_store))
+    settings_store = SettingsStore(log_dir / "settings.json")
+    server = ThreadingHTTPServer(
+        ("0.0.0.0", port), build_handler(logger, record_history, text_stats, snippets_store, settings_store)
+    )
 
     logger.info(f"Remote input server is running on port {port}.")
     logger.info("Open one of these addresses on your phone:")

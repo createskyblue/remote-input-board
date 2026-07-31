@@ -70,9 +70,15 @@ VK_RETURN = 0x0D
 VK_UP = 0x26
 VK_DOWN = 0x28
 VK_DELETE = 0x2E
+VK_CONTROL = 0x11
+VK_V = 0x56
 
 TYPE_BATCH_CHARS = 5
 TYPE_BATCH_DELAY = 0.008
+PASTE_SETTLE_DELAY = 0.05
+
+CF_UNICODETEXT = 13
+GMEM_MOVEABLE = 0x0002
 
 SUPPORTED_KEYS = {
     "backspace": VK_BACK,
@@ -95,6 +101,24 @@ user32.GetForegroundWindow.argtypes = ()
 user32.GetForegroundWindow.restype = wintypes.HWND
 user32.GetWindowTextW.argtypes = (wintypes.HWND, wintypes.LPWSTR, ctypes.c_int)
 user32.GetWindowTextW.restype = ctypes.c_int
+user32.OpenClipboard.argtypes = (wintypes.HWND,)
+user32.OpenClipboard.restype = wintypes.BOOL
+user32.EmptyClipboard.argtypes = ()
+user32.EmptyClipboard.restype = wintypes.BOOL
+user32.SetClipboardData.argtypes = (wintypes.UINT, wintypes.HANDLE)
+user32.SetClipboardData.restype = wintypes.HANDLE
+user32.CloseClipboard.argtypes = ()
+user32.CloseClipboard.restype = wintypes.BOOL
+
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+kernel32.GlobalAlloc.argtypes = (wintypes.UINT, ctypes.c_size_t)
+kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
+kernel32.GlobalLock.argtypes = (wintypes.HGLOBAL,)
+kernel32.GlobalLock.restype = wintypes.LPVOID
+kernel32.GlobalUnlock.argtypes = (wintypes.HGLOBAL,)
+kernel32.GlobalUnlock.restype = wintypes.BOOL
+kernel32.GlobalFree.argtypes = (wintypes.HGLOBAL,)
+kernel32.GlobalFree.restype = wintypes.HGLOBAL
 
 
 def _iter_utf16_units(text: str) -> list[int]:
@@ -280,5 +304,62 @@ def mouse_button(button: str, action: str) -> dict:
         "method": "sendinput-mouse-button",
         "button": button,
         "action": action,
+        "durationMs": int((time.perf_counter() - started_at) * 1000),
+    }
+
+
+def _open_clipboard_with_retry(attempts: int = 4, delay: float = 0.05) -> None:
+    for _ in range(attempts):
+        if user32.OpenClipboard(None):
+            return
+        time.sleep(delay)
+    raise OSError(ctypes.get_last_error(), "OpenClipboard failed (clipboard is busy).")
+
+
+def set_clipboard_text(text: str) -> None:
+    payload = (text + "\0").encode("utf-16-le")
+    handle = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(payload))
+    if not handle:
+        raise OSError(ctypes.get_last_error(), "GlobalAlloc failed for clipboard text.")
+    locked = kernel32.GlobalLock(handle)
+    if not locked:
+        kernel32.GlobalFree(handle)
+        raise OSError(ctypes.get_last_error(), "GlobalLock failed for clipboard text.")
+    try:
+        ctypes.memmove(locked, payload, len(payload))
+    finally:
+        kernel32.GlobalUnlock(handle)
+
+    _open_clipboard_with_retry()
+    try:
+        user32.EmptyClipboard()
+        if not user32.SetClipboardData(CF_UNICODETEXT, handle):
+            raise OSError(ctypes.get_last_error(), "SetClipboardData failed.")
+        handle = None  # Ownership transferred to the system on success.
+    finally:
+        user32.CloseClipboard()
+        if handle:
+            kernel32.GlobalFree(handle)
+
+
+def build_ctrl_v_inputs() -> list[INPUT]:
+    return [
+        _make_key_input(VK_CONTROL, False),
+        _make_key_input(VK_V, False),
+        _make_key_input(VK_V, True),
+        _make_key_input(VK_CONTROL, True),
+    ]
+
+
+def paste_text(text: str) -> dict:
+    started_at = time.perf_counter()
+    window_title = get_foreground_window_title()
+    set_clipboard_text(text)
+    time.sleep(PASTE_SETTLE_DELAY)
+    _send_inputs(build_ctrl_v_inputs())
+    return {
+        "method": "clipboard-paste",
+        "windowTitle": window_title,
+        "charCount": len(text),
         "durationMs": int((time.perf_counter() - started_at) * 1000),
     }

@@ -41,6 +41,16 @@ def _is_finite_number(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
+def _finish_text_message(message_type: str, text: str, result: dict, record_history, text_stats) -> dict:
+    if record_history is not None:
+        record_history({"kind": "text", "text": text})
+    total_chars = text_stats.add_text(text) if text_stats is not None else None
+    response = {"ok": True, "type": message_type, **result}
+    if total_chars is not None:
+        response["totalChars"] = total_chars
+    return response
+
+
 def handle_realtime_message(
     payload: dict,
     logger,
@@ -49,12 +59,48 @@ def handle_realtime_message(
     scroll_mouse=None,
     click_mouse=None,
     mouse_button=None,
+    type_text=None,
+    paste_text=None,
+    record_history=None,
+    text_stats=None,
+    settings_store=None,
 ) -> dict:
     if not isinstance(payload, dict):
         return {"ok": False, "error": "Realtime message must be a JSON object."}
 
     message_type = payload.get("type")
     try:
+        if message_type == "getSettings":
+            if settings_store is None:
+                return {"ok": False, "error": "Settings store is not configured."}
+            return {"ok": True, "type": "settings", "settings": settings_store.get_all()}
+
+        if message_type == "setSettings":
+            if settings_store is None:
+                return {"ok": False, "error": "Settings store is not configured."}
+            incoming = payload.get("settings")
+            if not isinstance(incoming, dict):
+                return {"ok": False, "error": "Expected a settings object."}
+            if "inputMethod" in incoming and incoming["inputMethod"] not in {"type", "paste"}:
+                return {"ok": False, "error": "Invalid inputMethod value."}
+            return {"ok": True, "type": "settings", "settings": settings_store.save_all(incoming)}
+
+        if message_type == "type":
+            text = payload.get("text", "")
+            if not isinstance(text, str) or not text.strip():
+                return {"ok": False, "error": "Text is required."}
+            if type_text is None:
+                return {"ok": False, "error": "Text input is not configured."}
+            return _finish_text_message("type", text, type_text(text), record_history, text_stats)
+
+        if message_type == "paste":
+            text = payload.get("text", "")
+            if not isinstance(text, str) or not text.strip():
+                return {"ok": False, "error": "Text is required."}
+            if paste_text is None:
+                return {"ok": False, "error": "Paste input is not configured."}
+            return _finish_text_message("paste", text, paste_text(text), record_history, text_stats)
+
         if message_type == "key":
             key = payload.get("key", "")
             if key not in {"backspace", "delete", "down", "enter", "escape", "up"}:
@@ -119,6 +165,23 @@ def handle_realtime_message(
         return {"ok": False, "error": str(exc)}
 
 
+def _respond_text_submission(text, perform, action_label, logger, record_history, text_stats) -> Response:
+    logger.info(f"Received {action_label} request.", {"textLength": len(text)})
+    try:
+        result = perform(text)
+        if record_history is not None:
+            record_history({"kind": "text", "text": text})
+        total_chars = text_stats.add_text(text) if text_stats is not None else None
+        logger.info(f"{action_label} request completed.", result)
+        payload = {"ok": True, **result}
+        if total_chars is not None:
+            payload["totalChars"] = total_chars
+        return json_response(200, payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(f"{action_label} request failed.", {"error": str(exc)})
+        return json_response(500, {"error": str(exc)})
+
+
 def handle_request(
     method: str,
     path: str,
@@ -133,6 +196,7 @@ def handle_request(
     scroll_mouse=None,
     click_mouse=None,
     mouse_button=None,
+    paste_text=None,
 ) -> Response:
     if method == "GET" and path == "/":
         logger.info("Served mobile page.")
@@ -152,20 +216,21 @@ def handle_request(
             logger.warn("Rejected empty text submission.")
             return json_response(400, {"error": "Text is required."})
 
-        logger.info("Received typing request.", {"textLength": len(text)})
-        try:
-            result = type_text(text)
-            if record_history is not None:
-                record_history({"kind": "text", "text": text})
-            total_chars = text_stats.add_text(text) if text_stats is not None else None
-            logger.info("Typing request completed.", result)
-            payload = {"ok": True, **result}
-            if total_chars is not None:
-                payload["totalChars"] = total_chars
-            return json_response(200, payload)
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Typing request failed.", {"error": str(exc)})
-            return json_response(500, {"error": str(exc)})
+        return _respond_text_submission(text, type_text, "typing", logger, record_history, text_stats)
+
+    if method == "POST" and path == "/api/paste":
+        payload = _read_json_body(body, logger)
+        if payload is None:
+            return json_response(400, {"error": "Invalid JSON body."})
+
+        text = payload.get("text", "")
+        if not isinstance(text, str) or not text.strip():
+            logger.warn("Rejected empty text submission.")
+            return json_response(400, {"error": "Text is required."})
+        if paste_text is None:
+            return json_response(500, {"error": "Paste input is not configured."})
+
+        return _respond_text_submission(text, paste_text, "paste", logger, record_history, text_stats)
 
     if method == "POST" and path == "/api/key":
         payload = _read_json_body(body, logger)

@@ -430,6 +430,37 @@
     .snippetFormActions button { min-height: 40px; font-size: 14px; }
     .snippetEmpty { text-align: center; color: var(--muted); padding: 24px; font-size: 15px; }
 
+    /* ---- 设置弹窗 ---- */
+    .settingsButton { padding: 0 10px; }
+    .settingsBody { padding: 14px 18px 18px; display: grid; gap: 16px; overflow: auto; }
+    .settingsGroup { display: grid; gap: 8px; }
+    .settingsLabel { font-size: 13px; font-weight: 800; color: var(--muted); }
+    .settingsOption {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-areas: "radio title" "radio desc";
+      column-gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfdfc;
+      cursor: pointer;
+    }
+    .settingsOption input[type="radio"] {
+      grid-area: radio;
+      width: 20px;
+      height: 20px;
+      accent-color: var(--accent);
+      margin: 0;
+    }
+    .settingsOptionTitle { grid-area: title; font-weight: 800; font-size: 15px; color: var(--ink); }
+    .settingsOptionDesc { grid-area: desc; font-size: 12px; color: var(--muted); }
+    .settingsOption:has(input:checked) {
+      border-color: var(--accent);
+      background: rgba(15, 123, 95, 0.06);
+    }
+
     @media (max-width: 520px) {
       body { padding: 10px; }
       .toolbar { grid-template-columns: 1fr; }
@@ -452,6 +483,7 @@
       <div class="composerHeader">
         <label for="text">输入内容</label>
         <div class="headerTools">
+          <button id="settingsButton" class="modeToggle settingsButton" type="button" aria-label="设置" title="设置">⚙</button>
           <button id="modeToggle" class="modeToggle" type="button">触控板</button>
           <div class="totalChars">累计字数 <strong id="totalChars">0</strong></div>
         </div>
@@ -515,6 +547,31 @@
     <div id="status" class="statusbar">等待输入。</div>
   </main>
 
+  <!-- 设置弹窗 -->
+  <div id="settingsOverlay" class="snippetOverlay" hidden>
+    <div class="snippetPanel">
+      <div class="snippetPanelHeader">
+        <h3>设置</h3>
+        <button id="settingsClose" class="snippetClose" type="button" aria-label="关闭">✕</button>
+      </div>
+      <div class="settingsBody">
+        <div class="settingsGroup">
+          <div class="settingsLabel">输入方式</div>
+          <label class="settingsOption">
+            <input type="radio" name="inputMethod" value="type">
+            <span class="settingsOptionTitle">键盘输入</span>
+            <span class="settingsOptionDesc">逐字模拟敲击，不碰剪贴板，适合大多数编辑器。</span>
+          </label>
+          <label class="settingsOption">
+            <input type="radio" name="inputMethod" value="paste">
+            <span class="settingsOptionTitle">剪贴板粘贴</span>
+            <span class="settingsOptionDesc">写入剪贴板后 Ctrl+V 粘贴，适合终端、游戏等敲击失灵的场景。</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 快捷指令弹窗 -->
   <div id="snippetOverlay" class="snippetOverlay" hidden>
     <div class="snippetPanel">
@@ -539,6 +596,7 @@
     const HISTORY_STORAGE_KEY = "remoteInput.history";
     const TOTAL_CHARS_STORAGE_KEY = "remoteInput.totalChars";
     const ENTER_BEHAVIOR_STORAGE_KEY = "remoteInput.enterNewlineMode";
+    const SETTINGS_STORAGE_KEY = "remoteInput.settings";
     const REALTIME_PATH = "/ws";
     const HISTORY_LIMIT = 30;
     const BACKSPACE_SENTINEL = "​";
@@ -576,6 +634,10 @@
     const snippetFormSave = document.getElementById("snippetFormSave");
     const snippetFormCancel = document.getElementById("snippetFormCancel");
     const snippetClose = document.getElementById("snippetClose");
+    const settingsButton = document.getElementById("settingsButton");
+    const settingsOverlay = document.getElementById("settingsOverlay");
+    const settingsClose = document.getElementById("settingsClose");
+    const inputMethodRadios = document.querySelectorAll('input[name="inputMethod"]');
 
     let pendingTimer = null;
     let countdownStartedAt = 0;
@@ -608,6 +670,9 @@
     let scrollFrame = null;
     let realtimeSocket = null;
     let realtimeReconnectTimer = null;
+    let realtimeRequestSeq = 0;
+    const realtimePending = new Map();
+    let settings = { inputMethod: "type" };
     const canUseBeforeInput = "onbeforeinput" in text;
     let composerTextBeforeInput = "";
     let enterNewlineMode = false;
@@ -811,7 +876,56 @@
     snippetsButton.addEventListener("click", openSnippetModal);
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !snippetOverlay.hidden) { closeSnippetModal(); e.preventDefault(); }
+      if (e.key === "Escape" && !settingsOverlay.hidden) { closeSettingsModal(); e.preventDefault(); }
     });
+
+    // ---- 设置（服务端持久化，WebSocket 同步） ----
+    function loadSavedSettings() {
+      try {
+        const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (p && (p.inputMethod === "type" || p.inputMethod === "paste")) settings = { inputMethod: p.inputMethod };
+        }
+      } catch {}
+    }
+
+    function applySettings(next) {
+      if (!next || typeof next !== "object") return;
+      if (next.inputMethod === "type" || next.inputMethod === "paste") settings.inputMethod = next.inputMethod;
+      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      for (const r of inputMethodRadios) r.checked = r.value === settings.inputMethod;
+    }
+
+    function saveSettings(next) {
+      applySettings(next);
+      const message = { type: "setSettings", settings: { inputMethod: settings.inputMethod } };
+      if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+        try {
+          realtimeSocket.send(JSON.stringify(message));
+          setStatus("设置已保存：输入方式 = " + (settings.inputMethod === "paste" ? "剪贴板粘贴" : "键盘输入") + "。");
+        } catch (e) { setStatus("设置保存失败", true); }
+      } else {
+        setStatus("实时通道未连接，设置仅保存在本机。", true);
+      }
+    }
+
+    function openSettingsModal() {
+      for (const r of inputMethodRadios) r.checked = r.value === settings.inputMethod;
+      settingsOverlay.hidden = false;
+      setStatus("输入方式：" + (settings.inputMethod === "paste" ? "剪贴板粘贴" : "键盘输入") + "。");
+    }
+
+    function closeSettingsModal() {
+      settingsOverlay.hidden = true;
+    }
+
+    settingsButton.addEventListener("click", openSettingsModal);
+    settingsClose.addEventListener("click", closeSettingsModal);
+    settingsOverlay.addEventListener("click", (e) => { if (e.target === settingsOverlay) closeSettingsModal(); });
+    for (const r of inputMethodRadios) {
+      r.addEventListener("change", () => { if (r.checked) saveSettings({ inputMethod: r.value }); });
+    }
 
     // ---- 回车行为切换 ----
     function loadSavedEnterBehavior() {
@@ -945,10 +1059,39 @@
       if (!("WebSocket" in window)) return;
       if (realtimeSocket && (realtimeSocket.readyState === WebSocket.OPEN || realtimeSocket.readyState === WebSocket.CONNECTING)) return;
       try { realtimeSocket = new WebSocket(getRealtimeUrl()); } catch { realtimeSocket = null; return; }
-      realtimeSocket.addEventListener("open", () => { if (realtimeReconnectTimer !== null) { window.clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer = null; } });
-      realtimeSocket.addEventListener("message", (event) => { try { const p = JSON.parse(event.data); if (p && p.ok === false) setStatus(p.error || "实时控制失败", true); } catch {} });
+      realtimeSocket.addEventListener("open", () => {
+        if (realtimeReconnectTimer !== null) { window.clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer = null; }
+        try { realtimeSocket.send(JSON.stringify({ type: "getSettings" })); } catch {}
+      });
+      realtimeSocket.addEventListener("message", (event) => {
+        try {
+          const p = JSON.parse(event.data);
+          if (!p) return;
+          if (p.id && realtimePending.has(p.id)) {
+            const pending = realtimePending.get(p.id);
+            realtimePending.delete(p.id);
+            window.clearTimeout(pending.timer);
+            if (p.ok === false) pending.reject(new Error(p.error || "请求失败"));
+            else pending.resolve(p);
+            return;
+          }
+          if (p.type === "settings" && p.settings) { applySettings(p.settings); return; }
+          if (p.ok === false) setStatus(p.error || "实时控制失败", true);
+        } catch {}
+      });
       realtimeSocket.addEventListener("close", scheduleRealtimeReconnect);
       realtimeSocket.addEventListener("error", () => { try { realtimeSocket.close(); } catch {} });
+    }
+
+    function sendRealtimeRequest(message, timeoutMs = 30000) {
+      return new Promise((resolve, reject) => {
+        if (!realtimeSocket || realtimeSocket.readyState !== WebSocket.OPEN) { reject(new Error("实时通道未连接")); return; }
+        const id = (++realtimeRequestSeq).toString(36);
+        const timer = window.setTimeout(() => { realtimePending.delete(id); reject(new Error("实时响应超时")); }, timeoutMs);
+        realtimePending.set(id, { resolve, reject, timer });
+        try { realtimeSocket.send(JSON.stringify({ ...message, id })); }
+        catch (e) { realtimePending.delete(id); window.clearTimeout(timer); reject(e); }
+      });
     }
 
     async function sendRealtime(message, fallback) {
@@ -1064,7 +1207,16 @@
     async function sendText(options = {}) {
       const payloadText = getComposerText(); if (!payloadText.trim() || sending) return;
       stopCountdown(); sending = true; sendButton.disabled = true; setStatus(options.source === "auto" ? "自动发送中..." : "发送中...");
-      try { const r = await postJson("/api/type", { text: payloadText }); addHistoryItem({ kind: "text", text: payloadText }); if (typeof r.totalChars === "number") setTotalChars(r.totalChars); text.value = BACKSPACE_SENTINEL; setStatus("已发送，耗时 " + (r.durationMs || 0) + " ms。"); }
+      try {
+        const messageType = settings.inputMethod === "paste" ? "paste" : "type";
+        const r = (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN)
+          ? await sendRealtimeRequest({ type: messageType, text: payloadText })
+          : await postJson("/api/" + messageType, { text: payloadText });
+        addHistoryItem({ kind: "text", text: payloadText });
+        if (typeof r.totalChars === "number") setTotalChars(r.totalChars);
+        text.value = BACKSPACE_SENTINEL;
+        setStatus("已发送，耗时 " + (r.durationMs || 0) + " ms。");
+      }
       catch (e) { setStatus(e.message || "发送失败", true); }
       finally { sending = false; sendButton.disabled = false; focusComposer(); }
     }
@@ -1151,7 +1303,7 @@
     });
     clearHistory.addEventListener("click", () => { saveHistory([]); renderHistory(); setStatus("历史已清空。"); });
 
-    loadSavedAutoSend(); loadSavedDelay(); renderAutoSendCopy(); loadSavedEnterBehavior();
+    loadSavedAutoSend(); loadSavedDelay(); renderAutoSendCopy(); loadSavedEnterBehavior(); loadSavedSettings();
     loadTotalChars(); renderHistory(); connectRealtime();
     ensureBackspaceSentinel(); primeMobileKeyboard();
     window.addEventListener("pageshow", primeMobileKeyboard);
