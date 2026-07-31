@@ -44,8 +44,8 @@ def _is_finite_number(value) -> bool:
 def _finish_text_message(message_type: str, text: str, result: dict, record_history, text_stats) -> dict:
     if record_history is not None:
         record_history({"kind": "text", "text": text})
-    total_chars = text_stats.add_text(text) if text_stats is not None else None
-    response = {"ok": True, "type": message_type, **result}
+    total_chars = text_stats.get_total_chars() if text_stats is not None else None
+    response = {"ok": True, "type": message_type, "sentChars": len(text), **result}
     if total_chars is not None:
         response["totalChars"] = total_chars
     return response
@@ -75,6 +75,15 @@ def handle_realtime_message(
             if text_stats is None:
                 return {"ok": False, "error": "Text stats are not configured."}
             return {"ok": True, "type": "stats", "totalChars": text_stats.get_total_chars()}
+
+        if message_type == "setStats":
+            if text_stats is None:
+                return {"ok": False, "error": "Text stats are not configured."}
+            total = payload.get("totalChars")
+            if not _is_finite_number(total):
+                return {"ok": False, "error": "Expected a numeric totalChars."}
+            saved = text_stats.save_total_chars(int(round(total)))
+            return {"ok": True, "type": "stats", "totalChars": saved}
 
         if message_type == "getSnippets":
             if snippets_store is None:
@@ -190,9 +199,9 @@ def _respond_text_submission(text, perform, action_label, logger, record_history
         result = perform(text)
         if record_history is not None:
             record_history({"kind": "text", "text": text})
-        total_chars = text_stats.add_text(text) if text_stats is not None else None
+        total_chars = text_stats.get_total_chars() if text_stats is not None else None
         logger.info(f"{action_label} request completed.", result)
-        payload = {"ok": True, **result}
+        payload = {"ok": True, "sentChars": len(text), **result}
         if total_chars is not None:
             payload["totalChars"] = total_chars
         return json_response(200, payload)

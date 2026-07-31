@@ -40,7 +40,7 @@ class TextStatsTests(unittest.TestCase):
 
             self.assertEqual(count_text_history_chars(history_file), 4)
 
-    def test_type_request_adds_and_returns_persisted_total_chars(self):
+    def test_type_request_returns_sent_chars_and_backup_total(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = TextStatsStore(Path(temp_dir) / "stats.json", initial_total_chars=10)
 
@@ -55,8 +55,18 @@ class TextStatsTests(unittest.TestCase):
 
             payload = json.loads(response.body.decode("utf-8"))
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(payload["totalChars"], 13)
-            self.assertEqual(json.loads((Path(temp_dir) / "stats.json").read_text(encoding="utf-8"))["totalChars"], 13)
+            # 发送响应带回本次字数 sentChars；服务器不再自行累加，累计数以手机上报为准（stats.json 只是备份）
+            self.assertEqual(payload["sentChars"], 3)
+            self.assertEqual(payload["totalChars"], 10)
+            self.assertEqual(json.loads((Path(temp_dir) / "stats.json").read_text(encoding="utf-8"))["totalChars"], 10)
+
+    def test_save_total_chars_overwrites_backup_total(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = TextStatsStore(Path(temp_dir) / "stats.json", initial_total_chars=10)
+
+            self.assertEqual(store.save_total_chars(5000), 5000)
+            self.assertEqual(store.get_total_chars(), 5000)
+            self.assertEqual(json.loads((Path(temp_dir) / "stats.json").read_text(encoding="utf-8"))["totalChars"], 5000)
 
     def test_stats_endpoint_returns_persisted_total_chars(self):
         with tempfile.TemporaryDirectory() as temp_dir:

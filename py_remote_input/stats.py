@@ -43,6 +43,13 @@ class TextStatsStore:
             self._write_total(total)
             return total
 
+    def save_total_chars(self, total: int) -> int:
+        """Store a phone-reported cumulative total (server acts as a backup mirror)."""
+        with self._lock:
+            total = max(0, int(total))
+            self._write_total(total)
+            return total
+
     def _read_total(self) -> int:
         try:
             payload = json.loads(self.stats_file_path.read_text(encoding="utf-8"))

@@ -30,6 +30,10 @@ class FakeTextStats:
     def add_text(self, _text):
         return self.total
 
+    def save_total_chars(self, total):
+        self.total = total
+        return self.total
+
 
 class WebTests(unittest.TestCase):
     def test_serves_mobile_page_with_controls(self):
@@ -71,7 +75,10 @@ class WebTests(unittest.TestCase):
         self.assertIn("累计字数", html)
         self.assertIn("updateTotalChars", html)
         self.assertIn('fetchJson("/api/stats")', html)
-        self.assertIn("setTotalChars(r.totalChars)", html)
+        self.assertIn("Math.max(loadLocalTotalChars() + sentChars, serverTotal)", html)
+        self.assertIn("saveStatsToServer", html)
+        self.assertIn('type: "setStats"', html)
+        self.assertIn("loadLocalTotalChars", html)
         self.assertNotIn("addTypedChars(payloadText)", html)
         self.assertIn("syncBackspace", html)
         self.assertIn("syncEnter", html)
@@ -579,6 +586,7 @@ class WebTests(unittest.TestCase):
 
         self.assertEqual(result["ok"], True)
         self.assertEqual(result["type"], "type")
+        self.assertEqual(result["sentChars"], 2)
         self.assertEqual(calls, ["你好"])
         self.assertEqual(records[0]["text"], "你好")
 
@@ -593,6 +601,7 @@ class WebTests(unittest.TestCase):
 
         self.assertEqual(result["ok"], True)
         self.assertEqual(result["type"], "paste")
+        self.assertEqual(result["sentChars"], 2)
         self.assertEqual(calls, ["代码"])
 
     def test_realtime_get_settings_returns_stored_settings(self):
@@ -655,6 +664,30 @@ class WebTests(unittest.TestCase):
         self.assertEqual(result["ok"], True)
         self.assertEqual(result["type"], "stats")
         self.assertEqual(result["totalChars"], 12345)
+
+    def test_realtime_set_stats_saves_total(self):
+        stats = FakeTextStats(100)
+
+        result = handle_realtime_message(
+            {"type": "setStats", "totalChars": 123456},
+            FakeLogger(),
+            text_stats=stats,
+        )
+
+        self.assertEqual(result["ok"], True)
+        self.assertEqual(result["type"], "stats")
+        self.assertEqual(result["totalChars"], 123456)
+        self.assertEqual(stats.get_total_chars(), 123456)
+
+    def test_realtime_set_stats_rejects_non_numeric(self):
+        result = handle_realtime_message(
+            {"type": "setStats", "totalChars": "abc"},
+            FakeLogger(),
+            text_stats=FakeTextStats(),
+        )
+
+        self.assertEqual(result["ok"], False)
+        self.assertIn("numeric totalChars", result["error"])
 
     def test_realtime_get_snippets_returns_snippets(self):
         class FakeSnippets:
