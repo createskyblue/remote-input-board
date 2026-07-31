@@ -82,10 +82,10 @@ curl -s http://127.0.0.1:3210/
 | `RemoteInputBoard.spec` | PyInstaller 构建配置 |
 | `start-hidden.vbs` | 后台启动脚本（VBS） |
 | `dist/logs/` | 运行时日志和持久化数据 |
-| `dist/logs/stats.json` | 累计字数 |
-| `dist/logs/snippets.json` | 快捷指令（多端同步） |
-| `dist/logs/settings.json` | 设置（输入方式，多端同步） |
-| `dist/logs/input-history.log` | 输入历史 |
+| `dist/logs/stats.json` | 累计字数备份（手机上报，内存缓存约 5 分钟落盘） |
+| `dist/logs/snippets.json` | 快捷指令（兼容，当前存手机本地） |
+| `dist/logs/settings.json` | 设置（兼容，当前存手机本地） |
+| `dist/logs/history/YYYY-MM-DD/HH.log` | 输入历史，按天+小时分文件，一行一条 JSON |
 | `dist/logs/server.log` | 服务日志 |
 
 ### 注意事项

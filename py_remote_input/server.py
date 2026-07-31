@@ -35,18 +35,23 @@ def get_local_urls(port: int) -> list[str]:
     return urls
 
 
-def build_history_recorder(history_file_path: Path, stats_file_path: Path | None = None):
-    history_file_path.parent.mkdir(parents=True, exist_ok=True)
+def build_history_recorder(log_dir: Path, stats_file_path: Path | None = None):
+    history_dir = log_dir / "history"
+    history_dir.mkdir(parents=True, exist_ok=True)
     if stats_file_path is None:
-        stats_file_path = history_file_path.with_name("stats.json")
-    text_stats = TextStatsStore(stats_file_path, initial_total_chars=count_text_history_chars(history_file_path))
+        stats_file_path = log_dir / "stats.json"
+    text_stats = TextStatsStore(stats_file_path, initial_total_chars=count_text_history_chars(history_dir))
 
     def record_history(item: dict) -> None:
+        now = datetime.now()
+        day_dir = history_dir / now.strftime("%Y-%m-%d")
+        day_dir.mkdir(parents=True, exist_ok=True)
+        path = day_dir / (now.strftime("%H") + ".log")
         payload = {
-            "createdAt": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            "createdAt": now.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
             **item,
         }
-        with history_file_path.open("a", encoding="utf-8") as handle:
+        with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
     return record_history, text_stats
@@ -212,7 +217,7 @@ def serve() -> None:
     port = int(os.environ.get("PORT", "3210"))
     log_dir = Path.cwd() / "logs"
     logger = Logger(log_dir / "server.log")
-    record_history, text_stats = build_history_recorder(log_dir / "input-history.log", log_dir / "stats.json")
+    record_history, text_stats = build_history_recorder(log_dir, log_dir / "stats.json")
     snippets_store = SnippetsStore(log_dir / "snippets.json")
     settings_store = SettingsStore(log_dir / "settings.json")
     server = ThreadingHTTPServer(
@@ -231,4 +236,5 @@ def serve() -> None:
     except KeyboardInterrupt:
         logger.info("Server stopped.")
     finally:
+        text_stats.flush()
         server.server_close()

@@ -25,20 +25,23 @@ class FakeLogger:
 class TextStatsTests(unittest.TestCase):
     def test_counts_only_text_history_characters(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            history_file = Path(temp_dir) / "input-history.log"
-            history_file.write_text(
+            day_dir = Path(temp_dir) / "history" / "2026-08-01"
+            day_dir.mkdir(parents=True)
+            (day_dir / "10.log").write_text(
                 "\n".join(
                     [
                         json.dumps({"kind": "text", "text": "你好"}),
                         json.dumps({"kind": "key", "key": "enter"}),
                         "not json",
-                        json.dumps({"kind": "text", "text": "A🙂"}),
                     ]
                 ),
                 encoding="utf-8",
             )
+            (day_dir / "11.log").write_text(
+                json.dumps({"kind": "text", "text": "A🙂"}), encoding="utf-8"
+            )
 
-            self.assertEqual(count_text_history_chars(history_file), 4)
+            self.assertEqual(count_text_history_chars(day_dir.parent), 4)
 
     def test_type_request_returns_sent_chars_and_backup_total(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -66,6 +69,17 @@ class TextStatsTests(unittest.TestCase):
 
             self.assertEqual(store.save_total_chars(5000), 5000)
             self.assertEqual(store.get_total_chars(), 5000)
+            store.flush()
+            self.assertEqual(json.loads((Path(temp_dir) / "stats.json").read_text(encoding="utf-8"))["totalChars"], 5000)
+
+    def test_save_total_chars_stays_in_memory_until_flush_due(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = TextStatsStore(Path(temp_dir) / "stats.json", initial_total_chars=10, flush_interval=600)
+
+            self.assertEqual(store.save_total_chars(5000), 5000)
+            # 5 分钟缓存：未到落盘时间，文件仍是旧值
+            self.assertEqual(json.loads((Path(temp_dir) / "stats.json").read_text(encoding="utf-8"))["totalChars"], 10)
+            store.flush()
             self.assertEqual(json.loads((Path(temp_dir) / "stats.json").read_text(encoding="utf-8"))["totalChars"], 5000)
 
     def test_stats_endpoint_returns_persisted_total_chars(self):
@@ -87,14 +101,32 @@ class TextStatsTests(unittest.TestCase):
     def test_history_recorder_seeds_stats_from_existing_history(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             log_dir = Path(temp_dir)
-            history_file = log_dir / "input-history.log"
-            stats_file = log_dir / "stats.json"
-            history_file.write_text(json.dumps({"kind": "text", "text": "旧数据"}) + "\n", encoding="utf-8")
+            day_dir = log_dir / "history" / "2026-08-01"
+            day_dir.mkdir(parents=True)
+            (day_dir / "09.log").write_text(
+                json.dumps({"kind": "text", "text": "旧数据"}) + "\n", encoding="utf-8"
+            )
 
-            recorder, store = build_history_recorder(history_file, stats_file)
+            recorder, store = build_history_recorder(log_dir, log_dir / "stats.json")
             recorder({"kind": "text", "text": "新"})
 
             self.assertEqual(store.get_total_chars(), 3)
+
+    def test_history_recorder_writes_to_daily_hourly_files(self):
+        import re
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_dir = Path(temp_dir)
+            recorder, _store = build_history_recorder(log_dir, log_dir / "stats.json")
+
+            recorder({"kind": "text", "text": "记录"})
+
+            files = sorted((log_dir / "history").rglob("*.log"))
+            self.assertEqual(len(files), 1)
+            payload = json.loads(files[0].read_text(encoding="utf-8"))
+            self.assertEqual(payload["text"], "记录")
+            self.assertRegex(files[0].parent.name, r"^\d{4}-\d{2}-\d{2}$")
+            self.assertRegex(files[0].name, r"^\d{2}\.log$")
 
 
 if __name__ == "__main__":
