@@ -947,7 +947,7 @@
       if (e.key === "Escape" && !settingsOverlay.hidden) { closeSettingsModal(); e.preventDefault(); }
     });
 
-    // ---- 设置（服务端持久化，WebSocket 同步） ----
+    // ---- 设置（存手机本地，切换服务器也随身走） ----
     function loadSavedSettings() {
       try {
         const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -967,15 +967,7 @@
 
     function saveSettings(next) {
       applySettings(next);
-      const message = { type: "setSettings", settings: { inputMethod: settings.inputMethod } };
-      if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
-        try {
-          realtimeSocket.send(JSON.stringify(message));
-          setStatus("设置已保存：输入方式 = " + (settings.inputMethod === "paste" ? "剪贴板粘贴" : "键盘输入") + "。");
-        } catch (e) { setStatus("设置保存失败", true); }
-      } else {
-        setStatus("实时通道未连接，设置仅保存在本机。", true);
-      }
+      setStatus("设置已保存：输入方式 = " + (settings.inputMethod === "paste" ? "剪贴板粘贴" : "键盘输入") + "。");
     }
 
     function openSettingsModal() {
@@ -1255,7 +1247,6 @@
       try { realtimeSocket = new WebSocket(getRealtimeUrl()); } catch { realtimeSocket = null; return; }
       realtimeSocket.addEventListener("open", () => {
         if (realtimeReconnectTimer !== null) { window.clearTimeout(realtimeReconnectTimer); realtimeReconnectTimer = null; }
-        try { realtimeSocket.send(JSON.stringify({ type: "getSettings" })); } catch {}
       });
       realtimeSocket.addEventListener("message", (event) => {
         try {
@@ -1269,7 +1260,6 @@
             else pending.resolve(p);
             return;
           }
-          if (p.type === "settings" && p.settings) { applySettings(p.settings); return; }
           if (p.ok === false) setStatus(p.error || "实时控制失败", true);
         } catch {}
       });
