@@ -6,3 +6,116 @@ requires-python = ">=3.11"
 name = "remote-input-board"
 version = "0.1.0"
 source = { editable = "." }
+dependencies = [
+    { name = "winrt-windows-applicationmodel-datatransfer" },
+    { name = "winrt-windows-foundation" },
+    { name = "winrt-windows-foundation-collections" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "winrt-windows-applicationmodel-datatransfer", specifier = ">=3.2.1" },
+    { name = "winrt-windows-foundation", specifier = ">=3.2.1" },
+    { name = "winrt-windows-foundation-collections", specifier = ">=3.2.1" },
+]
+
+[[package]]
+name = "typing-extensions"
+version = "4.16.0"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz", hash = "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8" },
+]
+
+[[package]]
+name = "winrt-runtime"
+version = "3.2.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/16/dd/acdd527c1d890c8f852cc2af644aa6c160974e66631289420aa871b05e65/winrt_runtime-3.2.1.tar.gz", hash = "sha256:c8dca19e12b234ae6c3dadf1a4d0761b51e708457492c13beb666556958801ea" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/90/8d/d7ae0e07cd85c7768de76e8578261854f2af72bd3a8a527bb675e8ae0eda/winrt_runtime-3.2.1-cp311-cp311-win32.whl", hash = "sha256:9e9b64f1ba631cc4b9fe60b8ff16fef3f32c7ce2fcc84735a63129ff8b15c022" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/ac/66/d05f6e6c0517654734e7f87fa1f0fbc965add9f27cc36b524d96331ab3d8/winrt_runtime-3.2.1-cp311-cp311-win_amd64.whl", hash = "sha256:c0a9046ae416808420a358c51705af8ae100acd40bc578be57ddfdd51cbb0f9c" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/39/a5/760c8396110f6d3e4c417752da1a2bf3b89e0998329c2f10afc717ef6291/winrt_runtime-3.2.1-cp311-cp311-win_arm64.whl", hash = "sha256:e94f3cb40ea2d723c44c82c16d715c03c6b3bd977d135b49535fdd5415fd9130" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/d3/54/3dd06f2341fab6abb06588a16b30e0b213b0125be7b79dafc3bdba3b334a/winrt_runtime-3.2.1-cp312-cp312-win32.whl", hash = "sha256:762b3d972a2f7037f7db3acbaf379dd6d8f6cda505f71f66c6b425d1a1eae2f1" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/ca/a1/1d7248d5c62ccbea5f3e0da64ca4529ce99c639c3be2485b6ed709f5c740/winrt_runtime-3.2.1-cp312-cp312-win_amd64.whl", hash = "sha256:06510db215d4f0dc45c00fbb1251c6544e91742a0ad928011db33b30677e1576" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/8a/ae/6a205d8dafc79f7c242be7f940b1e0c1971fd64ab3079bda4b514aa3d714/winrt_runtime-3.2.1-cp312-cp312-win_arm64.whl", hash = "sha256:14562c29a087ccad38e379e585fef333e5c94166c807bdde67b508a6261aa195" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/79/d4/1a555d8bdcb8b920f8e896232c82901cc0cda6d3e4f92842199ae7dff70a/winrt_runtime-3.2.1-cp313-cp313-win32.whl", hash = "sha256:44e2733bc709b76c554aee6c7fe079443b8306b2e661e82eecfebe8b9d71e4d1" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/aa/24/2b6e536ca7745d788dfd17a2ec376fa03a8c7116dc638bb39b035635484f/winrt_runtime-3.2.1-cp313-cp313-win_amd64.whl", hash = "sha256:3c1fdcaeedeb2920dc3b9039db64089a6093cad2be56a3e64acc938849245a6d" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/d4/7f/6d72973279e2929b2a71ed94198ad4a5d63ee2936e91a11860bf7b431410/winrt_runtime-3.2.1-cp313-cp313-win_arm64.whl", hash = "sha256:28f3dab083412625ff4d2b46e81246932e6bebddf67bea7f05e01712f54e6159" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/c8/87/88bd98419a9da77a68e030593fee41702925a7ad8a8aec366945258cbb31/winrt_runtime-3.2.1-cp314-cp314-win32.whl", hash = "sha256:9b6298375468ac2f6815d0c008a059fc16508c8f587e824c7936ed9216480dad" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/87/85/e5c2a10d287edd9d3ee8dc24bf7d7f335636b92bf47119768b7dd2fd1669/winrt_runtime-3.2.1-cp314-cp314-win_amd64.whl", hash = "sha256:e36e587ab5fd681ee472cd9a5995743f75107a1a84d749c64f7e490bc86bc814" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/52/2a/eb9e78397132175f70dd51dfa4f93e489c17d6b313ae9dce60369b8d84a7/winrt_runtime-3.2.1-cp314-cp314-win_arm64.whl", hash = "sha256:35d6241a2ebd5598e4788e69768b8890ee1eee401a819865767a1fbdd3e9a650" },
+]
+
+[[package]]
+name = "winrt-windows-applicationmodel-datatransfer"
+version = "3.2.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
+dependencies = [
+    { name = "winrt-runtime" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/6e/0d/75d5535fb5520f035be66473134288742f1cd656e89262a60f1b294f5e7c/winrt_windows_applicationmodel_datatransfer-3.2.1.tar.gz", hash = "sha256:20aa420c12c5518ed7b63e57e4d9e26d73d06954987ba94e672470145ee6f4bb" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/60/24/222d0b869a2682f1d5ec50f7bf106545522d072e340e73691ee4085c0c58/winrt_windows_applicationmodel_datatransfer-3.2.1-cp311-cp311-win32.whl", hash = "sha256:1593ef3881ec4292d8be2dc1f00e5fd5d99c88e1e70dccff565366a6fa183ab7" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/48/40/b4629c48f8e67d63cca5dce94107429388fb21351568a9f2a4033e360039/winrt_windows_applicationmodel_datatransfer-3.2.1-cp311-cp311-win_amd64.whl", hash = "sha256:4729684ca8da65cdc3ba917226b4e99ff6255b3e80b4f00ac997384a5fad7f55" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/d7/4f/b083bda4414c839f62707f8a63a7ce923655fe576365d91e14e4f3b4b27f/winrt_windows_applicationmodel_datatransfer-3.2.1-cp311-cp311-win_arm64.whl", hash = "sha256:9ae4a98d874e89d2d217c0b674901c63dfcf16c29f2b25e9259e172644a5a9db" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/19/8f/5600b9801fcda49b596c8d4103ac02790d83642ad730efbeaf8ad561abb7/winrt_windows_applicationmodel_datatransfer-3.2.1-cp312-cp312-win32.whl", hash = "sha256:efdefeaa0cd32314b2f1faf2bd99cb9fef27287feeb0f86fe47a3db6b213fc1a" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/4f/fb/575e98824ba8b4807f463869bef8211aebe17aff884ebaf3e7088f11a5c8/winrt_windows_applicationmodel_datatransfer-3.2.1-cp312-cp312-win_amd64.whl", hash = "sha256:6de55af73bdfcd6563d1baa5d4da87a95768be7068c8a83646cc12a8495ce1ca" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/c6/e4/a81d6bd7956d044066ee97b10b9631685e4712e8a4df5017f7720cf51e99/winrt_windows_applicationmodel_datatransfer-3.2.1-cp312-cp312-win_arm64.whl", hash = "sha256:3da0d90ad48af1ccd3b0df7e571eac7b11b7498b8e060b2d014f7e4e116cf76d" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/a2/8f/48bd1bf8f611b39659218bfd025cb4fbc2733bf58a823b65830fc1c60b7a/winrt_windows_applicationmodel_datatransfer-3.2.1-cp313-cp313-win32.whl", hash = "sha256:a5b979e29f1c06bec91d3908ba30611226fa92317be6014df3d8ac0d87924cd5" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/b4/c2/92f716bd39004325c5551e7519ec48ace7cbaf462f74d51fa15955d27122/winrt_windows_applicationmodel_datatransfer-3.2.1-cp313-cp313-win_amd64.whl", hash = "sha256:43bd19794b4bd38cec3658d10894beee007e9f5dd9d2ec9ea181db2054fffef0" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/50/31/f1fc47ef7ce7bc084ed2a16e876970517f4b835970a1d8295edb2e243aff/winrt_windows_applicationmodel_datatransfer-3.2.1-cp313-cp313-win_arm64.whl", hash = "sha256:532d2c7613e5fae00b8528ce78b93129497515fe7c7104de34754fd360d0d392" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/53/57/6dcdfc1b804e14b847dd5b8abbdf3321a55250497a7efe529869e49258c0/winrt_windows_applicationmodel_datatransfer-3.2.1-cp314-cp314-win32.whl", hash = "sha256:a08bf1edc66bc28685b4a555eaddde645dc820c141e7b7a5fb41052125a920ad" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/29/c9/83ab5cd24594ebbd5767b808e361935a3b3819d3f951acd2c68e2a681ae3/winrt_windows_applicationmodel_datatransfer-3.2.1-cp314-cp314-win_amd64.whl", hash = "sha256:5013a2e0b20539d5d3bb8bef12f96810e81f03bd0ea2db91e26d56167a144258" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/f7/ad/31a03fa310b8c7ec5fc3a55512186f806a5a01b694a8ac14896cebc43fbd/winrt_windows_applicationmodel_datatransfer-3.2.1-cp314-cp314-win_arm64.whl", hash = "sha256:38c9964abe459bde4a5d01071b3ffcaa462ce10a0675c62d2d718ce5cdd5e5d7" },
+]
+
+[[package]]
+name = "winrt-windows-foundation"
+version = "3.2.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
+dependencies = [
+    { name = "winrt-runtime" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/0c/55/098ce7ea0679efcc1298b269c48768f010b6c68f90c588f654ec874c8a74/winrt_windows_foundation-3.2.1.tar.gz", hash = "sha256:ad2f1fcaa6c34672df45527d7c533731fdf65b67c4638c2b4aca949f6eec0656" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/c0/36/09b9757f7cbf269e67008ea2ad188a44f974c94c9b49ebf0b52d1a8c4069/winrt_windows_foundation-3.2.1-cp311-cp311-win32.whl", hash = "sha256:d1b5970241ccd61428f7330d099be75f4f52f25e510d82c84dbbdaadd625e437" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/05/a5/216d66df6bdcee58eb3877fabc1544337e23f850bf9f93838db7f5698371/winrt_windows_foundation-3.2.1-cp311-cp311-win_amd64.whl", hash = "sha256:f3762be2f6e0f2aedf83a0742fd727290b397ffe3463d963d29211e4ebb53a7e" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/be/ca/48ca8b5bc5be5c7a5516c9e1d9a21861b4217e1b4ee57923aab6f13fa411/winrt_windows_foundation-3.2.1-cp311-cp311-win_arm64.whl", hash = "sha256:806c77818217b3476e6c617293b3d5b0ff8a9901549dc3417586f6799938d671" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/f3/f8/495e304ddedd5ff2f196efbde906265cb75ade4d79e2937837f72ef654a0/winrt_windows_foundation-3.2.1-cp312-cp312-win32.whl", hash = "sha256:867642ccf629611733db482c4288e17b7919f743a5873450efb6d69ae09fdc2b" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/9b/5e/b5059e4ece095351c496c9499783130c302d25e353c18031d5231b1b3b3c/winrt_windows_foundation-3.2.1-cp312-cp312-win_amd64.whl", hash = "sha256:45550c5b6c2125cde495c409633e6b1ea5aa1677724e3b95eb8140bfccbe30c9" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/a5/70/acbcb3ef07b1b67e2de4afab9176a5282cfd775afd073efe6828dfc65ace/winrt_windows_foundation-3.2.1-cp312-cp312-win_arm64.whl", hash = "sha256:94f4661d71cb35ebc52be7af112f2eeabdfa02cb05e0243bf9d6bd2cafaa6f37" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/7b/71/5e87131e4aecc8546c76b9e190bfe4e1292d028bda3f9dd03b005d19c76c/winrt_windows_foundation-3.2.1-cp313-cp313-win32.whl", hash = "sha256:3998dc58ed50ecbdbabace1cdef3a12920b725e32a5806d648ad3f4829d5ba46" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/ba/7f/8d5108461351d4f6017f550af8874e90c14007f9122fa2eab9f9e0e9b4e1/winrt_windows_foundation-3.2.1-cp313-cp313-win_amd64.whl", hash = "sha256:6e98617c1e46665c7a56ce3f5d28e252798416d1ebfee3201267a644a4e3c479" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/44/f5/2edf70922a3d03500dab17121b90d368979bd30016f6dbca0d043f0c71f1/winrt_windows_foundation-3.2.1-cp313-cp313-win_arm64.whl", hash = "sha256:2a8c1204db5c352f6a563130a5a41d25b887aff7897bb677d4ff0b660315aad4" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/e3/0a/d77346e39fe0c81f718cde49f83fe77c368c0e14c6418f72dfa1e7ef22d0/winrt_windows_foundation-3.2.1-cp314-cp314-win32.whl", hash = "sha256:35e973ab3c77c2a943e139302256c040e017fd6ff1a75911c102964603bba1da" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/a1/56/4d2b545bea0f34f68df6d4d4ca22950ff8a935497811dccdc0ca58737a05/winrt_windows_foundation-3.2.1-cp314-cp314-win_amd64.whl", hash = "sha256:a22a7ebcec0d262e60119cff728f32962a02df60471ded8b2735a655eccc0ef5" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/ed/ed/b9d3a11cac73444c0a3703200161cd7267dab5ab85fd00e1f965526e74a8/winrt_windows_foundation-3.2.1-cp314-cp314-win_arm64.whl", hash = "sha256:3be7fbae829b98a6a946db4fbaf356b11db1fbcbb5d4f37e7a73ac6b25de8b87" },
+]
+
+[[package]]
+name = "winrt-windows-foundation-collections"
+version = "3.2.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
+dependencies = [
+    { name = "winrt-runtime" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/ef/62/d21e3f1eeb8d47077887bbf0c3882c49277a84d8f98f7c12bda64d498a07/winrt_windows_foundation_collections-3.2.1.tar.gz", hash = "sha256:0eff1ad0d8d763ad17e9e7bbd0c26a62b27215016393c05b09b046d6503ae6d5" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/87/b3/7e4a75c62e86bedf9458b7ec8dfed74cff3236e0b4b2288f95967d5cc4d2/winrt_windows_foundation_collections-3.2.1-cp311-cp311-win32.whl", hash = "sha256:9b272d9936e7db4840881c5dcf921eb26789ae4ef23fb6ec15e13e19a16254e7" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/32/58/049db1d95fdfc0c8451dc6db17442ed4e6b2aba361c425c0bb8dc8c98c4a/winrt_windows_foundation_collections-3.2.1-cp311-cp311-win_amd64.whl", hash = "sha256:c646a5d442dd6540ade50890081ca118b41f073356e19032d0a5d7d0d38fbc89" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/5b/6b/a04974f5555c86452e54c19d063d9fd45f0fe9f2a6858e7fe12c639043fb/winrt_windows_foundation_collections-3.2.1-cp311-cp311-win_arm64.whl", hash = "sha256:2c4630027c93cdd518b0cf4cc726b8fbdbc3388e36d02aa1de190a0fc18ca523" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/1d/0b/7802349391466d3f7e8f62f588f36a1a0b6560abfcdbdaa426fe21d322b4/winrt_windows_foundation_collections-3.2.1-cp312-cp312-win32.whl", hash = "sha256:15704eef3125788f846f269cf54a3d89656fa09a1dc8428b70871f717d595ad6" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/37/94/5b888713e472746635a382e523513ab1b8200af55c5b56bc70e1e4369115/winrt_windows_foundation_collections-3.2.1-cp312-cp312-win_amd64.whl", hash = "sha256:550dfb8c82fe74d9e0728a2a16a9175cc9e34ca2b8ef758d69b2a398894b698b" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/5f/3c/829273622c9b37c67b97f187b92be318404f7d33db045e31d72b7d50f54c/winrt_windows_foundation_collections-3.2.1-cp312-cp312-win_arm64.whl", hash = "sha256:810ad4bd11ab4a74fdbcd3ed33b597ef7c0b03af73fc9d7986c22bcf3bd24f84" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/a6/cd/99ef050d80bea2922fa1ded93e5c250732634095d8bd3595dd808083e5ca/winrt_windows_foundation_collections-3.2.1-cp313-cp313-win32.whl", hash = "sha256:4267a711b63476d36d39227883aeb3fb19ac92b88a9fc9973e66fbce1fd4aed9" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/94/93/4f75fd6a4c96f1e9bee198c5dc9a9b57e87a9c38117e1b5e423401886353/winrt_windows_foundation_collections-3.2.1-cp313-cp313-win_amd64.whl", hash = "sha256:5e12a6e75036ee90484c33e204b85fb6785fcc9e7c8066ad65097301f48cdd10" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/40/76/de47ccc390017ec5575e7e7fd9f659ee3747c52049cdb2969b1b538ce947/winrt_windows_foundation_collections-3.2.1-cp313-cp313-win_arm64.whl", hash = "sha256:34b556255562f1b36d07fba933c2bcd9f0db167fa96727a6cbb4717b152ad7a2" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/e1/47/b3301d964422d4611c181348149a7c5956a2a76e6339de451a000d4ae8e7/winrt_windows_foundation_collections-3.2.1-cp314-cp314-win32.whl", hash = "sha256:33188ed2d63e844c8adfbb82d1d3d461d64aaf78d225ce9c5930421b413c45ab" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/20/59/5f2c940ff606297129e93ebd6030c813e6a43a786de7fc33ccb268e0b06b/winrt_windows_foundation_collections-3.2.1-cp314-cp314-win_amd64.whl", hash = "sha256:d4cfece7e9c0ead2941e55a1da82f20d2b9c8003bb7a8853bb7f999b539f80a4" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/f8/2d/2c8eb89062c71d4be73d618457ed68e7e2ba29a660ac26349d44fc121cbf/winrt_windows_foundation_collections-3.2.1-cp314-cp314-win_arm64.whl", hash = "sha256:3884146fea13727510458f6a14040b7632d5d90127028b9bfd503c6c655d0c01" },
+]

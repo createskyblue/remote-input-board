@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import ctypes
 from ctypes import wintypes
 import time
+
+from winrt.windows.applicationmodel.datatransfer import Clipboard, ClipboardHistoryItemsResultStatus
 
 
 ULONG_PTR = ctypes.c_ulonglong if ctypes.sizeof(ctypes.c_void_p) == 8 else ctypes.c_ulong
@@ -76,9 +79,26 @@ VK_V = 0x56
 TYPE_BATCH_CHARS = 5
 TYPE_BATCH_DELAY = 0.008
 PASTE_SETTLE_DELAY = 0.05
+PASTE_HISTORY_TIMEOUT = 1.0
+PASTE_HISTORY_POLL_INTERVAL = 0.05
+PASTE_RESTORE_DELAY = 0.5
 
 CF_UNICODETEXT = 13
+CF_BITMAP = 2
+CF_METAFILEPICT = 3
+CF_ENHMETAFILE = 14
+CF_OWNERDISPLAY = 0x0080
 GMEM_MOVEABLE = 0x0002
+IMAGE_BITMAP = 0
+
+
+class METAFILEPICT(ctypes.Structure):
+    _fields_ = [
+        ("mm", wintypes.LONG),
+        ("xExt", wintypes.LONG),
+        ("yExt", wintypes.LONG),
+        ("hMF", wintypes.HANDLE),
+    ]
 
 SUPPORTED_KEYS = {
     "backspace": VK_BACK,
@@ -105,6 +125,12 @@ user32.OpenClipboard.argtypes = (wintypes.HWND,)
 user32.OpenClipboard.restype = wintypes.BOOL
 user32.EmptyClipboard.argtypes = ()
 user32.EmptyClipboard.restype = wintypes.BOOL
+user32.GetClipboardData.argtypes = (wintypes.UINT,)
+user32.GetClipboardData.restype = wintypes.HANDLE
+user32.EnumClipboardFormats.argtypes = (wintypes.UINT,)
+user32.EnumClipboardFormats.restype = wintypes.UINT
+user32.CopyImage.argtypes = (wintypes.HANDLE, wintypes.UINT, ctypes.c_int, ctypes.c_int, wintypes.UINT)
+user32.CopyImage.restype = wintypes.HANDLE
 user32.SetClipboardData.argtypes = (wintypes.UINT, wintypes.HANDLE)
 user32.SetClipboardData.restype = wintypes.HANDLE
 user32.CloseClipboard.argtypes = ()
@@ -119,6 +145,20 @@ kernel32.GlobalUnlock.argtypes = (wintypes.HGLOBAL,)
 kernel32.GlobalUnlock.restype = wintypes.BOOL
 kernel32.GlobalFree.argtypes = (wintypes.HGLOBAL,)
 kernel32.GlobalFree.restype = wintypes.HGLOBAL
+kernel32.GlobalSize.argtypes = (wintypes.HGLOBAL,)
+kernel32.GlobalSize.restype = ctypes.c_size_t
+
+gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
+gdi32.DeleteObject.argtypes = (wintypes.HANDLE,)
+gdi32.DeleteObject.restype = wintypes.BOOL
+gdi32.CopyEnhMetaFileW.argtypes = (wintypes.HANDLE, wintypes.LPCWSTR)
+gdi32.CopyEnhMetaFileW.restype = wintypes.HANDLE
+gdi32.DeleteEnhMetaFile.argtypes = (wintypes.HANDLE,)
+gdi32.DeleteEnhMetaFile.restype = wintypes.BOOL
+gdi32.CopyMetaFileW.argtypes = (wintypes.HANDLE, wintypes.LPCWSTR)
+gdi32.CopyMetaFileW.restype = wintypes.HANDLE
+gdi32.DeleteMetaFile.argtypes = (wintypes.HANDLE,)
+gdi32.DeleteMetaFile.restype = wintypes.BOOL
 
 
 def _iter_utf16_units(text: str) -> list[int]:
@@ -342,6 +382,176 @@ def set_clipboard_text(text: str) -> None:
             kernel32.GlobalFree(handle)
 
 
+
+def _duplicate_memory_handle(handle: int) -> int:
+    """Copy a clipboard global-memory block so it survives EmptyClipboard."""
+    size = kernel32.GlobalSize(handle)
+    if not size:
+        return 0
+    source = kernel32.GlobalLock(handle)
+    if not source:
+        return 0
+    try:
+        copy = kernel32.GlobalAlloc(GMEM_MOVEABLE, size)
+        if not copy:
+            return 0
+        target = kernel32.GlobalLock(copy)
+        if not target:
+            kernel32.GlobalFree(copy)
+            return 0
+        try:
+            ctypes.memmove(target, source, size)
+        finally:
+            kernel32.GlobalUnlock(copy)
+        return copy
+    finally:
+        kernel32.GlobalUnlock(handle)
+
+
+def _duplicate_metafile_pict(handle: int) -> int:
+    """Deep-copy a CF_METAFILEPICT memory block and its underlying metafile."""
+    source = kernel32.GlobalLock(handle)
+    if not source:
+        return 0
+    try:
+        original = ctypes.cast(source, ctypes.POINTER(METAFILEPICT)).contents
+        if not original.hMF:
+            return 0
+        new_hmetafile = gdi32.CopyMetaFileW(original.hMF, None)
+        if not new_hmetafile:
+            return 0
+        copy = kernel32.GlobalAlloc(GMEM_MOVEABLE, ctypes.sizeof(METAFILEPICT))
+        if not copy:
+            gdi32.DeleteMetaFile(new_hmetafile)
+            return 0
+        target = kernel32.GlobalLock(copy)
+        if not target:
+            kernel32.GlobalFree(copy)
+            gdi32.DeleteMetaFile(new_hmetafile)
+            return 0
+        try:
+            ctypes.cast(target, ctypes.POINTER(METAFILEPICT)).contents = METAFILEPICT(
+                original.mm, original.xExt, original.yExt, new_hmetafile
+            )
+        finally:
+            kernel32.GlobalUnlock(copy)
+        return copy
+    finally:
+        kernel32.GlobalUnlock(handle)
+
+
+def _snapshot_clipboard() -> list[tuple[int, int]]:
+    """Copy every restorable clipboard format into independent handles."""
+    snapshot: list[tuple[int, int]] = []
+    _open_clipboard_with_retry()
+    try:
+        fmt = user32.EnumClipboardFormats(0)
+        while fmt:
+            handle = user32.GetClipboardData(fmt)
+            if handle:
+                if fmt == CF_BITMAP:
+                    copy = user32.CopyImage(handle, IMAGE_BITMAP, 0, 0, 0)
+                elif fmt == CF_ENHMETAFILE:
+                    copy = gdi32.CopyEnhMetaFileW(handle, None)
+                elif fmt == CF_METAFILEPICT:
+                    copy = _duplicate_metafile_pict(handle)
+                elif fmt == CF_OWNERDISPLAY:
+                    copy = 0
+                else:
+                    copy = _duplicate_memory_handle(handle)
+                if copy:
+                    snapshot.append((fmt, copy))
+            fmt = user32.EnumClipboardFormats(fmt)
+    finally:
+        user32.CloseClipboard()
+    return snapshot
+
+
+def _free_gdi_handle(fmt: int, handle: int) -> None:
+    if fmt == CF_BITMAP:
+        gdi32.DeleteObject(handle)
+    elif fmt == CF_ENHMETAFILE:
+        gdi32.DeleteEnhMetaFile(handle)
+    elif fmt == CF_METAFILEPICT:
+        locked = kernel32.GlobalLock(handle)
+        metafile = 0
+        if locked:
+            try:
+                metafile = ctypes.cast(locked, ctypes.POINTER(METAFILEPICT)).contents.hMF
+            finally:
+                kernel32.GlobalUnlock(handle)
+        if metafile:
+            gdi32.DeleteMetaFile(metafile)
+        kernel32.GlobalFree(handle)
+    else:
+        kernel32.GlobalFree(handle)
+
+
+def _free_snapshot(snapshot: list[tuple[int, int]]) -> None:
+    for fmt, handle in snapshot:
+        _free_gdi_handle(fmt, handle)
+
+
+def _restore_clipboard(snapshot: list[tuple[int, int]]) -> bool:
+    """Restore a snapshot as a new clipboard-history head, then keep its successor."""
+    if not snapshot:
+        return False
+    _open_clipboard_with_retry()
+    try:
+        user32.EmptyClipboard()
+        all_ok = True
+        for fmt, handle in snapshot:
+            if user32.SetClipboardData(fmt, handle):
+                continue
+            all_ok = False
+            _free_gdi_handle(fmt, handle)
+        return all_ok
+    finally:
+        user32.CloseClipboard()
+
+
+async def _history_has_current_text(text: str) -> bool:
+    deadline = time.monotonic() + PASTE_HISTORY_TIMEOUT
+    while time.monotonic() < deadline:
+        try:
+            result = await Clipboard.get_history_items_async()
+            if result.status == ClipboardHistoryItemsResultStatus.SUCCESS and result.items:
+                current = result.items[0].content
+                if current.contains("Text") and await asyncio.wait_for(current.get_text_async(), 0.2) == text:
+                    return True
+        except Exception:
+            return False
+        await asyncio.sleep(PASTE_HISTORY_POLL_INTERVAL)
+    return False
+
+
+def _wait_for_clipboard_history_text(text: str) -> bool:
+    """Wait until Windows clipboard history has indexed the newly pasted text."""
+    return asyncio.run(_history_has_current_text(text))
+
+
+async def _history_has_text_as_second_item(text: str) -> bool:
+    deadline = time.monotonic() + PASTE_HISTORY_TIMEOUT
+    while time.monotonic() < deadline:
+        try:
+            result = await Clipboard.get_history_items_async()
+            if result.status == ClipboardHistoryItemsResultStatus.SUCCESS:
+                items = list(result.items)
+                if len(items) >= 2:
+                    second = items[1].content
+                    if second.contains("Text") and await asyncio.wait_for(second.get_text_async(), 0.2) == text:
+                        return True
+        except Exception:
+            pass
+        await asyncio.sleep(PASTE_HISTORY_POLL_INTERVAL)
+    return False
+
+
+def _wait_for_clipboard_history_second_item(text: str) -> bool:
+    """Wait until the pasted text is the second Windows clipboard-history item."""
+    return asyncio.run(_history_has_text_as_second_item(text))
+
+
 def build_ctrl_v_inputs() -> list[INPUT]:
     return [
         _make_key_input(VK_CONTROL, False),
@@ -354,12 +564,29 @@ def build_ctrl_v_inputs() -> list[INPUT]:
 def paste_text(text: str) -> dict:
     started_at = time.perf_counter()
     window_title = get_foreground_window_title()
-    set_clipboard_text(text)
-    time.sleep(PASTE_SETTLE_DELAY)
-    _send_inputs(build_ctrl_v_inputs())
+    snapshot = _snapshot_clipboard()
+    try:
+        set_clipboard_text(text)
+        time.sleep(PASTE_SETTLE_DELAY)
+        _send_inputs(build_ctrl_v_inputs())
+    except Exception:
+        _free_snapshot(snapshot)
+        raise
+
+    history_captured = _wait_for_clipboard_history_text(text)
+    time.sleep(PASTE_RESTORE_DELAY)
+    try:
+        restored = _restore_clipboard(snapshot)
+    except OSError:
+        _free_snapshot(snapshot)
+        restored = False
+    history_ordered = _wait_for_clipboard_history_second_item(text) if restored else False
     return {
         "method": "clipboard-paste",
         "windowTitle": window_title,
         "charCount": len(text),
+        "clipboardRestored": restored,
+        "clipboardHistoryCaptured": history_captured,
+        "clipboardHistoryOrdered": history_ordered,
         "durationMs": int((time.perf_counter() - started_at) * 1000),
     }
