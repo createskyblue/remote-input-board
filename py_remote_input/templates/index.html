@@ -741,6 +741,19 @@
       return text.value.split(BACKSPACE_SENTINEL).join("");
     }
 
+    function insertTextAtSelection(currentText, insertedText, selectionStart, selectionEnd) {
+      const hasValidSelection = Number.isInteger(selectionStart)
+        && Number.isInteger(selectionEnd)
+        && selectionStart >= 0
+        && selectionEnd >= selectionStart
+        && selectionEnd <= currentText.length;
+      const start = hasValidSelection ? selectionStart : currentText.length;
+      const end = hasValidSelection ? selectionEnd : currentText.length;
+      const textValue = currentText.slice(0, start) + insertedText + currentText.slice(end);
+      const caret = start + insertedText.length;
+      return { text: textValue, selectionStart: caret, selectionEnd: caret };
+    }
+
     function placeCaretAtComposerEnd() {
       try { text.setSelectionRange(text.value.length, text.value.length); } catch {}
     }
@@ -761,11 +774,23 @@
       ensureBackspaceSentinel();
     }
 
-    function focusComposer() {
+    function focusComposerAt(selectionStart, selectionEnd) {
       if (currentMode !== "text") return;
       try { text.focus({ preventScroll: true }); } catch { text.focus(); }
-      try { text.setSelectionRange(text.value.length, text.value.length); } catch {}
       ensureBackspaceSentinel();
+      const hasValidSelection = Number.isInteger(selectionStart)
+        && Number.isInteger(selectionEnd)
+        && selectionStart >= 0
+        && selectionEnd >= selectionStart
+        && selectionEnd <= text.value.length;
+      if (hasValidSelection) {
+        try { text.setSelectionRange(selectionStart, selectionEnd); return; } catch {}
+      }
+      placeCaretAtComposerEnd();
+    }
+
+    function focusComposer() {
+      focusComposerAt(null, null);
     }
 
     function keepComposerFocus(event) {
@@ -1181,16 +1206,20 @@
       updateTotalChars(normalized);
     }
 
-    function confirmHistoryOverwrite() { return window.confirm("输入框已有内容，要覆盖当前输入内容吗？"); }
-
     function applyHistoryItem(item) {
       if (item.kind !== "text" || typeof item.text !== "string") return;
-      if (getComposerText().trim() && !confirmHistoryOverwrite()) { focusComposer(); return; }
       stopCountdown();
-      setComposerText(item.text);
-      setStatus("已填充历史记录，可编辑后发送。");
+      const currentText = getComposerText();
+      const inserted = insertTextAtSelection(
+        currentText,
+        item.text,
+        text.selectionStart,
+        text.selectionEnd,
+      );
+      text.value = inserted.text || BACKSPACE_SENTINEL;
+      setStatus("已插入历史记录，可编辑后发送。");
       document.querySelector(".composer").scrollIntoView({ behavior: "smooth", block: "start" });
-      focusComposer();
+      focusComposerAt(inserted.selectionStart, inserted.selectionEnd);
     }
 
     function renderHistory() {

@@ -128,6 +128,12 @@ class TyperTests(unittest.TestCase):
     def test_restore_clipboard_with_empty_snapshot_returns_false(self):
         self.assertFalse(typer._restore_clipboard([]))
 
+    def test_paste_fast_path_timing_budget_is_short(self):
+        self.assertLessEqual(typer.PASTE_SETTLE_DELAY, 0.03)
+        self.assertLessEqual(typer.PASTE_HISTORY_TIMEOUT, 0.4)
+        self.assertLessEqual(typer.PASTE_HISTORY_POLL_INTERVAL, 0.02)
+        self.assertLessEqual(typer.PASTE_RESTORE_DELAY, 0.12)
+
     def test_paste_restores_previous_clipboard_after_history_capture(self):
         snapshot = [(typer.CF_UNICODETEXT, 7)]
         with (
@@ -135,7 +141,6 @@ class TyperTests(unittest.TestCase):
             mock.patch.object(typer, "set_clipboard_text", return_value=None) as set_clipboard,
             mock.patch.object(typer, "_send_inputs", return_value=None) as send_inputs,
             mock.patch.object(typer, "_wait_for_clipboard_history_text", return_value=True, create=True) as wait_history,
-            mock.patch.object(typer, "_wait_for_clipboard_history_second_item", return_value=True, create=True) as wait_order,
             mock.patch.object(typer, "_restore_clipboard", return_value=True, create=True) as restore,
             mock.patch.object(typer, "get_foreground_window_title", return_value="Remote Desktop"),
             mock.patch.object(typer.time, "sleep", return_value=None) as sleep,
@@ -146,7 +151,6 @@ class TyperTests(unittest.TestCase):
         set_clipboard.assert_called_once_with("新内容")
         send_inputs.assert_called_once()
         wait_history.assert_called_once_with("新内容")
-        wait_order.assert_called_once_with("新内容")
         restore.assert_called_once_with(snapshot)
         self.assertEqual(result["clipboardRestored"], True)
         self.assertTrue(result["clipboardHistoryCaptured"])
@@ -162,7 +166,6 @@ class TyperTests(unittest.TestCase):
             mock.patch.object(typer, "set_clipboard_text", return_value=None),
             mock.patch.object(typer, "_send_inputs", return_value=None),
             mock.patch.object(typer, "_wait_for_clipboard_history_text", return_value=False, create=True) as wait_history,
-            mock.patch.object(typer, "_wait_for_clipboard_history_second_item", return_value=False, create=True) as wait_order,
             mock.patch.object(typer, "_restore_clipboard", return_value=True, create=True) as restore,
             mock.patch.object(typer, "get_foreground_window_title", return_value="Remote Desktop"),
             mock.patch.object(typer.time, "sleep", return_value=None),
@@ -170,7 +173,6 @@ class TyperTests(unittest.TestCase):
             result = typer.paste_text("新内容")
 
         wait_history.assert_called_once_with("新内容")
-        wait_order.assert_called_once_with("新内容")
         restore.assert_called_once_with(snapshot)
         self.assertEqual(result["clipboardRestored"], True)
         self.assertFalse(result["clipboardHistoryCaptured"])

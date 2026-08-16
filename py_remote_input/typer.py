@@ -78,10 +78,10 @@ VK_V = 0x56
 
 TYPE_BATCH_CHARS = 5
 TYPE_BATCH_DELAY = 0.008
-PASTE_SETTLE_DELAY = 0.05
-PASTE_HISTORY_TIMEOUT = 1.0
-PASTE_HISTORY_POLL_INTERVAL = 0.05
-PASTE_RESTORE_DELAY = 0.5
+PASTE_SETTLE_DELAY = 0.02
+PASTE_HISTORY_TIMEOUT = 0.4
+PASTE_HISTORY_POLL_INTERVAL = 0.01
+PASTE_RESTORE_DELAY = 0.12
 
 CF_UNICODETEXT = 13
 CF_BITMAP = 2
@@ -530,28 +530,6 @@ def _wait_for_clipboard_history_text(text: str) -> bool:
     return asyncio.run(_history_has_current_text(text))
 
 
-async def _history_has_text_as_second_item(text: str) -> bool:
-    deadline = time.monotonic() + PASTE_HISTORY_TIMEOUT
-    while time.monotonic() < deadline:
-        try:
-            result = await Clipboard.get_history_items_async()
-            if result.status == ClipboardHistoryItemsResultStatus.SUCCESS:
-                items = list(result.items)
-                if len(items) >= 2:
-                    second = items[1].content
-                    if second.contains("Text") and await asyncio.wait_for(second.get_text_async(), 0.2) == text:
-                        return True
-        except Exception:
-            pass
-        await asyncio.sleep(PASTE_HISTORY_POLL_INTERVAL)
-    return False
-
-
-def _wait_for_clipboard_history_second_item(text: str) -> bool:
-    """Wait until the pasted text is the second Windows clipboard-history item."""
-    return asyncio.run(_history_has_text_as_second_item(text))
-
-
 def build_ctrl_v_inputs() -> list[INPUT]:
     return [
         _make_key_input(VK_CONTROL, False),
@@ -580,7 +558,12 @@ def paste_text(text: str) -> dict:
     except OSError:
         _free_snapshot(snapshot)
         restored = False
-    history_ordered = _wait_for_clipboard_history_second_item(text) if restored else False
+    # Once the pasted text has been captured before the restore, restoring the
+    # previous clipboard creates the desired [previous, pasted] history order.
+    # The second-item poll only verified an asynchronous Windows update and made
+    # every paste wait unnecessarily, so report the deterministic operation result
+    # instead of blocking on that confirmation.
+    history_ordered = restored and history_captured
     return {
         "method": "clipboard-paste",
         "windowTitle": window_title,
